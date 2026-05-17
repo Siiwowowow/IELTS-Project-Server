@@ -1,3 +1,4 @@
+// src/app/lib/auth.ts
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { prisma } from "./prisma.js";
@@ -5,6 +6,8 @@ import { Role, userStatus } from "@prisma/client";
 import { bearer, emailOTP } from "better-auth/plugins";
 import { sendEmail } from "../utils/email.js";
 import { envVars } from "../config/env.js";
+import { redisClient } from "../config/redis.js";
+import { redisStorage } from "@better-auth/redis-storage";
 
 // Helper to convert duration string (e.g., "1d", "7h", "30m", "10s") to seconds
 function durationToSeconds(duration: string): number {
@@ -28,6 +31,10 @@ export const auth = betterAuth({
   database: prismaAdapter(prisma, {
     provider: "postgresql",
   }),
+  secondaryStorage: redisClient ? redisStorage({
+    client: redisClient,
+    keyPrefix: "better-auth:",
+  }) : undefined,
 
   emailAndPassword: {
     enabled: true,

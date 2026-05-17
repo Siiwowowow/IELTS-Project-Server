@@ -1,3 +1,4 @@
+//src/app/config/env.ts
 import dotenv from 'dotenv';
 import status from 'http-status';
 import AppError from '../errorHelpers/AppError.js';
@@ -34,6 +35,7 @@ interface EnvConfig {
     },
     SUPER_ADMIN_EMAIL: string;
     SUPER_ADMIN_PASSWORD: string;
+    REDIS_URL?: string;
 }
 
 
@@ -104,6 +106,7 @@ const loadEnvVariables = (): EnvConfig => {
         },  
         SUPER_ADMIN_EMAIL: process.env.SUPER_ADMIN_EMAIL as string,
         SUPER_ADMIN_PASSWORD: process.env.SUPER_ADMIN_PASSWORD as string,
+        REDIS_URL: process.env.REDIS_URL as string | undefined,
     }
 
 }

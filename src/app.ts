@@ -1,3 +1,4 @@
+//src/app.ts
 import express, { Application, Request, Response } from "express";
 import { IndexRoutes } from "./app/routes/index.js";
 import { notFound } from "./app/middleware/notFound.js";
