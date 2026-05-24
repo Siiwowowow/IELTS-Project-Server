@@ -1,7 +1,10 @@
+//prisma/schema/enum.prisma
 enum Role{
     SUPER_ADMIN
     ADMIN
-    USER
+    TEACHER
+    STUDENT
+
 }
 enum userStatus{
     PENDING_VERIFICATION

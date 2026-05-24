@@ -6,8 +6,8 @@ model User {
   emailVerified      Boolean  @default(false)
   image              String?
 
-  role               Role     @default(USER)
-  status             String   @default("ACTIVE")
+  role               Role     @default(STUDENT)
+  status             String   @default("ACTIVE")  
 
   needPasswordChange Boolean  @default(false)
   isDeleted          Boolean  @default(false)
@@ -21,7 +21,7 @@ model User {
   sessions           Session[]
   accounts           Account[]
 
-  @@map("user")
+  @@map("student")
 }
 
 model Session {

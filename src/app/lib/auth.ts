@@ -47,7 +47,7 @@ export const auth = betterAuth({
         callbackURL: envVars.GOOGLE_CALLBACK_URL,
         mapProfileToUser: ()=>{
             return {
-                role : Role.USER,
+                role : Role.STUDENT,
                 status : userStatus.ACTIVE,
                 needPasswordChange : false,
                 emailVerified : true,
@@ -66,7 +66,7 @@ export const auth = betterAuth({
     additionalFields: {
       role: {
         type: "string",
-        defaultValue: Role.USER,
+        defaultValue: Role.STUDENT,
       },
       status: {
         type: "string",
