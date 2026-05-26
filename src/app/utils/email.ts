@@ -7,15 +7,28 @@ import path from "path";
 import { envVars } from "../config/env.js";
 import AppError from "../errorHelpers/AppError.js";
 
-const transporter = nodemailer.createTransport({
-    host : envVars.EMAIL_SENDER.SMTP_HOST,
-    secure: true,
+// isGmail removed – condition inline below
+let transporter;
+if (envVars.EMAIL_SENDER.SMTP_HOST && envVars.EMAIL_SENDER.SMTP_HOST.includes('gmail')) {
+  transporter = nodemailer.createTransport({
+    service: 'gmail',
     auth: {
-        user: envVars.EMAIL_SENDER.SMTP_USER,
-        pass: envVars.EMAIL_SENDER.SMTP_PASS
+      user: envVars.EMAIL_SENDER.SMTP_USER,
+      pass: envVars.EMAIL_SENDER.SMTP_PASS,
     },
-    port: Number(envVars.EMAIL_SENDER.SMTP_PORT)
-})
+  });
+} else {
+  transporter = nodemailer.createTransport({
+    host: envVars.EMAIL_SENDER.SMTP_HOST,
+    port: Number(envVars.EMAIL_SENDER.SMTP_PORT),
+    secure: false,
+    auth: {
+      user: envVars.EMAIL_SENDER.SMTP_USER,
+      pass: envVars.EMAIL_SENDER.SMTP_PASS,
+    },
+    tls: { rejectUnauthorized: false },
+  });
+}
 
 interface SendEmailOptions {
     to: string;

@@ -46,6 +46,6 @@ app.use("/api/v1/", IndexRoutes);
 app.get('/', (req: Request, res: Response) => {
   res.send('Hello, TypeScript + Express!');
 });
-app.use(globalErrorHandler)
 app.use(notFound)
+app.use(globalErrorHandler)
 export default app;

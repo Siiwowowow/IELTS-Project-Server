@@ -14,11 +14,11 @@ router.post(
 );
 router.post("/login", AuthController.loginUser);
 router.post("/logout", AuthController.logoutUser);
-router.get("/me", checkAuth(Role.ADMIN, Role.SUPER_ADMIN, Role.STUDENT), AuthController.getMe)
+router.get("/me", checkAuth(Role.ADMIN, Role.SUPER_ADMIN, Role.STUDENT,Role.TEACHER), AuthController.getMe)
 router.post("/refresh-token", AuthController.getNewToken)
 router.post(
   "/change-password",
-  checkAuth(Role.ADMIN, Role.SUPER_ADMIN, Role.STUDENT),
+  checkAuth(Role.ADMIN, Role.SUPER_ADMIN, Role.STUDENT,Role.TEACHER),
   AuthController.changePassword
 );
 router.post("/verify-email", AuthController.verifyEmail);

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // src/config/multer.config.ts
 import multer from "multer";
 
@@ -5,16 +6,15 @@ import multer from "multer";
 const storage = multer.memoryStorage();
 
 // File filter to allow only images
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const fileFilter = (req: any, file: any, cb: any) => {
-  const allowedTypes = /jpeg|jpg|png|webp|gif/;
+  const allowedTypes = /jpeg|jpg|png|webp|gif|pdf/;
   const extname = allowedTypes.test(file.originalname.toLowerCase());
   const mimetype = allowedTypes.test(file.mimetype);
 
   if (extname && mimetype) {
     return cb(null, true);
   } else {
-    cb(new Error("Only image files (jpeg, jpg, png, webp, gif) are allowed"));
+    cb(new Error("Only image and PDF files are allowed"));
   }
 };
 

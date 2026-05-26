@@ -20,6 +20,7 @@ model User {
 
   sessions           Session[]
   accounts           Account[]
+  attempts           UserExamAttempt[]
 
   @@map("student")
 }

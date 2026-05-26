@@ -422,9 +422,17 @@ const logoutUser = async (sessionToken: string | undefined) => {
 };
 
 const verifyEmail = async (email: string, otp: string) => {
-  const result = await auth.api.verifyEmailOTP({
-    body: { email, otp },
-  });
+  console.log('verifyEmail called for email:', email, 'otp:', otp);
+  let result;
+    try {
+      result = await auth.api.verifyEmailOTP({
+        body: { email, otp },
+      });
+      console.log('Email verification succeeded for', email);
+    } catch (error) {
+      console.error('Email verification failed for', email, error);
+      throw error;
+    }
 
   if (!result.user) {
     throw new AppError(status.BAD_REQUEST, "Invalid OTP");
@@ -444,74 +452,79 @@ const verifyEmail = async (email: string, otp: string) => {
   };
 };
 const forgetPassword = async (email : string) => {
+  console.log('forgetPassword called for email:', email);
   const isUserExist = await prisma.user.findUnique({
-      where : {
-          email,
-      }
-  })
-
-  if(!isUserExist){
-      throw new AppError(status.NOT_FOUND, "User not found");
-  }
-
-  if(!isUserExist.emailVerified){
-      throw new AppError(status.BAD_REQUEST, "Email not verified");
-  }
-
-  if(isUserExist.isDeleted || isUserExist.status === userStatus.DELETED || isUserExist.status === userStatus.BLOCKED){
-      throw new AppError(status.NOT_FOUND, "User not found"); 
-  }
-
-  await auth.api.requestPasswordResetEmailOTP({
-      body:{
-          email,
-      }
-  })
-}
-const resetPassword = async (email : string, otp : string, newPassword : string) => {
-  const isUserExist = await prisma.user.findUnique({
-      where: {
-          email,
-      }
-  })
+      where: { email }
+  });
 
   if (!isUserExist) {
+      console.error('User not found for forgetPassword:', email);
       throw new AppError(status.NOT_FOUND, "User not found");
   }
 
   if (!isUserExist.emailVerified) {
+      console.error('Email not verified for forgetPassword:', email);
+      throw new AppError(status.BAD_REQUEST, "Email not verified");
+  }
+
+  if (isUserExist.isDeleted || isUserExist.status === userStatus.DELETED || isUserExist.status === userStatus.BLOCKED) {
+      console.error('User is deleted or blocked for forgetPassword:', email);
+      throw new AppError(status.NOT_FOUND, "User not found");
+  }
+
+  try {
+      await auth.api.requestPasswordResetEmailOTP({
+          body: { email }
+      });
+      console.log('OTP email sent for', email);
+  } catch (error) {
+      console.error('Failed to send OTP email for', email, error);
+      throw error;
+  }
+  return { success: true, message: "OTP sent" };}
+const resetPassword = async (email : string, otp : string, newPassword : string) => {
+  console.log('resetPassword called for email:', email, 'otp:', otp);
+  const isUserExist = await prisma.user.findUnique({
+      where: { email }
+  });
+
+  if (!isUserExist) {
+      console.error('User not found for resetPassword:', email);
+      throw new AppError(status.NOT_FOUND, "User not found");
+  }
+
+  if (!isUserExist.emailVerified) {
+      console.error('Email not verified for resetPassword:', email);
       throw new AppError(status.BAD_REQUEST, "Email not verified");
   }
 
   if (isUserExist.isDeleted || isUserExist.status === userStatus.DELETED) {
+      console.error('User is deleted for resetPassword:', email);
       throw new AppError(status.NOT_FOUND, "User not found");
   }
 
-  await auth.api.resetPasswordEmailOTP({
-      body:{
-          email,
-          otp,
-          password : newPassword,
-      }
-  })
+  try {
+      await auth.api.resetPasswordEmailOTP({
+          body: { email, otp, password: newPassword }
+      });
+      console.log('Password reset successful for', email);
+  } catch (error) {
+      console.error('Failed to reset password for', email, error);
+      throw error;
+  }
 
   if (isUserExist.needPasswordChange) {
       await prisma.user.update({
-          where: {
-              id: isUserExist.id,
-          },
-          data: {
-              needPasswordChange: false,
-          }
-      })
+          where: { id: isUserExist.id },
+          data: { needPasswordChange: false }
+      });
   }
 
   await prisma.session.deleteMany({
-      where:{
-          userId : isUserExist.id,
-      }
-  })
-}
+      where: { userId: isUserExist.id }
+  });
+
+  return { success: true, message: "Password reset successful" };}
 const googleLoginSuccess = async (session: Record<string, any>) => {
   const googleImage =
     session.user.image ||

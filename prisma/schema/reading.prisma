@@ -1,0 +1,136 @@
+// prisma/schema/reading.prisma
+
+enum QuestionGroupType {
+  TRUE_FALSE_NOT_GIVEN
+  YES_NO_NOT_GIVEN
+  MATCHING_HEADINGS
+  SUMMARY_COMPLETION_WITH_OPTIONS
+  SUMMARY_COMPLETION_WITHOUT_OPTIONS
+  MULTIPLE_CHOICE
+  MATCHING_INFORMATION
+  SENTENCE_COMPLETION
+  MATCHING_FEATURES
+  TABLE_NOTE_FLOW_CHART
+  SHORT_ANSWER
+  DIAGRAM_LABEL
+  MATCHING_SENTENCE_ENDINGS
+}
+
+enum AttemptStatus {
+  IN_PROGRESS
+  SUBMITTED
+}
+
+model Exam {
+  id          String   @id @default(uuid())
+  title       String
+  description String?  @db.Text
+  duration    Int      @default(60) // in minutes
+  isPublished Boolean  @default(false)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  passages    Passage[]
+  attempts    UserExamAttempt[]
+
+  @@map("exams")
+}
+
+model Passage {
+  id        String   @id @default(uuid())
+  examId    String
+  exam      Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+  
+  title     String
+  text      String?  @db.Text // HTML or rich text for the passage content
+  pdfUrl    String?  // Cloudinary URL if the teacher uploaded a PDF
+  imageUrl  String?  // Cloudinary URL if the teacher uploaded an image
+  order     Int      // 1, 2, or 3 for IELTS Academic Reading passages
+
+  questionGroups QuestionGroup[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("passages")
+}
+
+model QuestionGroup {
+  id             String            @id @default(uuid())
+  passageId      String
+  passage        Passage           @relation(fields: [passageId], references: [id], onDelete: Cascade)
+  
+  type           QuestionGroupType
+  instruction    String?           @db.Text // Questions 1-5, Do the following statements agree...
+  passageSegment String?           @db.Text // For Summary/Table completion text with placeholders like [1], [2]
+  options        Json?             // Array of options, e.g., List of Headings, Matching Sentence Endings, Matching Features
+  imageUrl       String?           // For Diagram labeling or group specific images
+  order          Int               // Order within the passage
+
+  questions      Question[]
+
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@map("question_groups")
+}
+
+model Question {
+  id             String        @id @default(uuid())
+  groupId        String
+  group          QuestionGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  
+  questionNumber Int           // Global question number within the exam (1 to 40)
+  questionText   String?       @db.Text // The question prompt or statement
+  options        Json?         // Specific options for this question (e.g., A, B, C, D for MCQs)
+  correctAnswer  String        // Exact correct answer (e.g., "TRUE", "NOT GIVEN", "A", "i", "London")
+  explanation    String?       @db.Text // Teacher's explanation for student review
+
+  answers        UserAnswer[]
+
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@map("questions")
+}
+
+model UserExamAttempt {
+  id        String        @id @default(uuid())
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  examId    String
+  exam      Exam          @relation(fields: [examId], references: [id], onDelete: Cascade)
+  
+  startTime DateTime      @default(now())
+  endTime   DateTime?
+  status    AttemptStatus @default(IN_PROGRESS)
+  
+  score     Float?        // Out of 40 (e.g., 32)
+  bandScore Float?        // Calculated IELTS Band (e.g., 7.5)
+
+  answers   UserAnswer[]
+
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@map("user_exam_attempts")
+}
+
+model UserAnswer {
+  id              String          @id @default(uuid())
+  attemptId       String
+  attempt         UserExamAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  
+  questionId      String
+  question        Question        @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  
+  submittedAnswer String?         // The answer submitted by the student
+  isCorrect       Boolean?        // Auto-graded indicator
+
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@map("user_answers")
+}
