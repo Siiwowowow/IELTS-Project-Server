@@ -21,6 +21,8 @@ export interface ICreateQuestionGroupPayload {
 export interface ICreatePassagePayload {
   title: string;
   text?: string;
+  body?: string;
+  instruction?: string;
   pdfUrl?: string;
   imageUrl?: string;
   order: number;

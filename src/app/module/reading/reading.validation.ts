@@ -29,22 +29,18 @@ const createPassageZodSchema = z.object({
 });
 
 const createExamZodSchema = z.object({
-  body: z.object({
-    title: z.string().min(1, "Exam title is required"),
-    description: z.string().optional(),
-    duration: z.number().int().min(1).optional(),
-    isPublished: z.boolean().optional(),
-    passages: z.array(createPassageZodSchema).optional(),
-  }),
+  title: z.string().min(1, "Exam title is required"),
+  description: z.string().optional(),
+  duration: z.number().int().min(1).optional(),
+  isPublished: z.boolean().optional(),
+  passages: z.array(createPassageZodSchema).optional(),
 });
 
 const updateExamZodSchema = z.object({
-  body: z.object({
-    title: z.string().optional(),
-    description: z.string().optional(),
-    duration: z.number().int().min(1).optional(),
-    isPublished: z.boolean().optional(),
-  }),
+  title: z.string().optional(),
+  description: z.string().optional(),
+  duration: z.number().int().min(1).optional(),
+  isPublished: z.boolean().optional(),
 });
 
 const submitAttemptZodSchema = z.object({

@@ -6,9 +6,11 @@ import { sendResponse } from "../../shared/sendResponse.js";
 import { ReadingService } from "./reading.service.js";
 import { uploadFileToCloudinary } from "../../config/cloudinary.config.js";
 import AppError from "../../errorHelpers/AppError.js";
+import { Role } from "@prisma/client";
 
 const createExam = catchAsync(async (req: Request, res: Response) => {
-  const result = await ReadingService.createExam(req.body);
+  const user = req.user as any;
+  const result = await ReadingService.createExam({ ...req.body, creatorEmail: user.email });
 
   sendResponse(res, {
     success: true,
@@ -20,7 +22,12 @@ const createExam = catchAsync(async (req: Request, res: Response) => {
 
 const getAllExams = catchAsync(async (req: Request, res: Response) => {
   const user = req.user as any;
-  const result = await ReadingService.getAllExams(user.role);
+  const { myExams } = req.query as any;
+
+  // Filter only if myExams parameter is present and role is TEACHER
+  const filterEmail = myExams === "true" && user.role === Role.TEACHER ? user.email : undefined;
+
+  const result = await ReadingService.getAllExams(user.role, filterEmail);
 
   sendResponse(res, {
     success: true,
@@ -44,7 +51,17 @@ const getExamById = catchAsync(async (req: Request, res: Response) => {
 });
 
 const updateExam = catchAsync(async (req: Request, res: Response) => {
+  const user = req.user as any;
   const { id } = req.params as any;
+
+  // Enforce ownership check for TEACHER role
+  if (user.role === Role.TEACHER) {
+    const exam = await ReadingService.getExamById(id, user.role);
+    if (exam.creatorEmail && exam.creatorEmail !== user.email) {
+      throw new AppError(status.FORBIDDEN, "You do not have permission to update this exam");
+    }
+  }
+
   const result = await ReadingService.updateExam(id, req.body);
 
   sendResponse(res, {
@@ -56,7 +73,17 @@ const updateExam = catchAsync(async (req: Request, res: Response) => {
 });
 
 const deleteExam = catchAsync(async (req: Request, res: Response) => {
+  const user = req.user as any;
   const { id } = req.params as any;
+
+  // Enforce ownership check for TEACHER role
+  if (user.role === Role.TEACHER) {
+    const exam = await ReadingService.getExamById(id, user.role);
+    if (exam.creatorEmail && exam.creatorEmail !== user.email) {
+      throw new AppError(status.FORBIDDEN, "You do not have permission to delete this exam");
+    }
+  }
+
   await ReadingService.deleteExam(id);
 
   sendResponse(res, {

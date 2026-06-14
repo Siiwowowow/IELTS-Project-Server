@@ -26,90 +26,83 @@ const calculateBandScore = (score: number): number => {
 };
 
 // Create a full exam with passages, groups, and questions
-const createExam = async (payload: ICreateExamPayload) => {
-  return await prisma.$transaction(async (tx) => {
-    const exam = await tx.exam.create({
-      data: {
-        title: payload.title,
-        description: payload.description,
-        duration: payload.duration ?? 60,
-        isPublished: payload.isPublished ?? false,
-      },
-    });
-
-    if (payload.passages && payload.passages.length > 0) {
-      for (const p of payload.passages) {
-        const passage = await tx.passage.create({
-          data: {
-            examId: exam.id,
-            title: p.title,
-            text: p.text,
-            pdfUrl: p.pdfUrl,
-            imageUrl: p.imageUrl,
-            order: p.order,
-          },
-        });
-
-        if (p.questionGroups && p.questionGroups.length > 0) {
-          for (const g of p.questionGroups) {
-            const group = await tx.questionGroup.create({
-              data: {
-                passageId: passage.id,
-                type: g.type,
-                instruction: g.instruction,
-                passageSegment: g.passageSegment,
-                options: g.options ? JSON.parse(JSON.stringify(g.options)) : null,
-                imageUrl: g.imageUrl,
-                order: g.order,
+const createExam = async (payload: ICreateExamPayload & { creatorEmail?: string }) => {
+  return await prisma.exam.create({
+    data: {
+      title: payload.title,
+      description: payload.description,
+      duration: payload.duration ?? 60,
+      isPublished: payload.isPublished ?? false,
+      creatorEmail: payload.creatorEmail,
+      passages: {
+        create: payload.passages?.map((p) => ({
+          title: p.title,
+          text: p.text,
+          body: p.body,
+          instruction: p.instruction,
+          pdfUrl: p.pdfUrl,
+          imageUrl: p.imageUrl,
+          order: p.order,
+          questionGroups: {
+            create: p.questionGroups?.map((g) => ({
+              type: g.type,
+              instruction: g.instruction,
+              passageSegment: g.passageSegment,
+              options: g.options ? JSON.parse(JSON.stringify(g.options)) : undefined,
+              imageUrl: g.imageUrl,
+              order: g.order,
+              questions: {
+                create: g.questions?.map((q) => ({
+                  questionNumber: q.questionNumber,
+                  questionText: q.questionText,
+                  options: q.options ? JSON.parse(JSON.stringify(q.options)) : undefined,
+                  correctAnswer: q.correctAnswer,
+                  explanation: q.explanation,
+                })),
               },
-            });
-
-            if (g.questions && g.questions.length > 0) {
-              for (const q of g.questions) {
-                await tx.question.create({
-                  data: {
-                    groupId: group.id,
-                    questionNumber: q.questionNumber,
-                    questionText: q.questionText,
-                    options: q.options ? JSON.parse(JSON.stringify(q.options)) : null,
-                    correctAnswer: q.correctAnswer,
-                    explanation: q.explanation,
-                  },
-                });
-              }
-            }
-          }
-        }
-      }
-    }
-
-    return await tx.exam.findUnique({
-      where: { id: exam.id },
-      include: {
-        passages: {
-          orderBy: { order: "asc" },
-          include: {
-            questionGroups: {
-              orderBy: { order: "asc" },
-              include: {
-                questions: {
-                  orderBy: { questionNumber: "asc" },
-                },
+            })),
+          },
+        })),
+      },
+    },
+    include: {
+      passages: {
+        orderBy: { order: "asc" },
+        include: {
+          questionGroups: {
+            orderBy: { order: "asc" },
+            include: {
+              questions: {
+                orderBy: { questionNumber: "asc" },
               },
             },
           },
         },
       },
-    });
+    },
   });
 };
 
 // Retrieve all exams
-const getAllExams = async (role: Role) => {
+const getAllExams = async (role: Role, email?: string) => {
   const isStudent = role === Role.STUDENT;
+  const isTeacher = role === Role.TEACHER;
+  
+  let whereClause: any = {};
+  
+  if (email) {
+    whereClause = {
+      OR: [
+        { creatorEmail: email },
+        { creatorEmail: null }
+      ]
+    };
+  } else if (isStudent || isTeacher) {
+    whereClause = { isPublished: true };
+  }
   
   return await prisma.exam.findMany({
-    where: isStudent ? { isPublished: true } : {},
+    where: whereClause,
     orderBy: { createdAt: "desc" },
     select: {
       id: true,
@@ -119,6 +112,7 @@ const getAllExams = async (role: Role) => {
       isPublished: true,
       createdAt: true,
       updatedAt: true,
+      creatorEmail: true,
       _count: {
         select: { passages: true },
       },
@@ -182,18 +176,80 @@ const updateExam = async (id: string, payload: Partial<ICreateExamPayload>) => {
     throw new AppError(status.NOT_FOUND, "Exam not found");
   }
 
-  return await prisma.exam.update({
-    where: { id },
-    data: {
-      title: payload.title,
-      description: payload.description,
-      duration: payload.duration,
-      isPublished: payload.isPublished,
-    },
-    include: {
-      passages: true,
-    },
-  });
+  return await prisma.$transaction(async (tx) => {
+    // 1. Update the exam metadata
+    await tx.exam.update({
+      where: { id },
+      data: {
+        title: payload.title,
+        description: payload.description,
+        duration: payload.duration,
+        isPublished: payload.isPublished,
+      },
+    });
+
+    // 2. If passages are provided, replace them
+    if (payload.passages) {
+      // Cascade delete existing passages, which will delete question groups and questions
+      await tx.passage.deleteMany({
+        where: { examId: id },
+      });
+
+      // Create new passages
+      for (const p of payload.passages) {
+        await tx.passage.create({
+          data: {
+            examId: id,
+            title: p.title,
+            text: p.text,
+            body: p.body,
+            instruction: p.instruction,
+            pdfUrl: p.pdfUrl,
+            imageUrl: p.imageUrl,
+            order: p.order,
+            questionGroups: {
+              create: p.questionGroups?.map((g) => ({
+                type: g.type,
+                instruction: g.instruction,
+                passageSegment: g.passageSegment,
+                options: g.options ? JSON.parse(JSON.stringify(g.options)) : undefined,
+                imageUrl: g.imageUrl,
+                order: g.order,
+                questions: {
+                  create: g.questions?.map((q) => ({
+                    questionNumber: q.questionNumber,
+                    questionText: q.questionText,
+                    options: q.options ? JSON.parse(JSON.stringify(q.options)) : undefined,
+                    correctAnswer: q.correctAnswer,
+                    explanation: q.explanation,
+                  })),
+                },
+              })),
+            },
+          },
+        });
+      }
+    }
+
+    return await tx.exam.findUnique({
+      where: { id },
+      include: {
+        passages: {
+          orderBy: { order: "asc" },
+          include: {
+            questionGroups: {
+              orderBy: { order: "asc" },
+              include: {
+                questions: {
+                  orderBy: { questionNumber: "asc" },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+  }, { timeout: 15000 });
 };
 
 // Delete exam and all cascaded models

@@ -25,10 +25,10 @@ router.get(
   ReadingController.getAllExams
 );
 
-// 3. Get Student's Attempt History (Students only)
+// 3. Get User's Attempt History (Students, Teachers, Admins)
 router.get(
   "/exams/history",
-  checkAuth(Role.STUDENT),
+  checkAuth(Role.SUPER_ADMIN, Role.ADMIN, Role.TEACHER, Role.STUDENT),
   ReadingController.getStudentAttemptHistory
 );
 
@@ -54,10 +54,10 @@ router.delete(
   ReadingController.deleteExam
 );
 
-// 7. Submit Student's Exam Attempt (Students only)
+// 7. Submit User's Exam Attempt (Students, Teachers, Admins)
 router.post(
   "/exams/:id/submit",
-  checkAuth(Role.STUDENT),
+  checkAuth(Role.SUPER_ADMIN, Role.ADMIN, Role.TEACHER, Role.STUDENT),
   validateRequest(ReadingValidation.submitAttemptZodSchema),
   ReadingController.submitExamAttempt
 );

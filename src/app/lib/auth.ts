@@ -145,7 +145,7 @@ export const auth = betterAuth({
      },
    },
   redirectURLs:{
-    signIn : `${envVars.BETTER_AUTH_URL}/api/v1/auth/google/success`,
+    signIn : envVars.BETTER_AUTH_URL.replace("/api/auth", "/api/v1/auth/google/success"),
 },
 trustedOrigins: [envVars.BETTER_AUTH_URL, envVars.FRONTEND_URL],
 

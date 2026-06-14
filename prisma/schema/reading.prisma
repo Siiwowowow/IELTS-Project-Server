@@ -14,6 +14,11 @@ enum QuestionGroupType {
   SHORT_ANSWER
   DIAGRAM_LABEL
   MATCHING_SENTENCE_ENDINGS
+  SUMMARY_COMPLETION
+  NOTES_COMPLETION
+  TABLE_COMPLETION
+  FLOW_CHART_COMPLETION
+  DIAGRAM_LABELLING
 }
 
 enum AttemptStatus {
@@ -31,6 +36,8 @@ model Exam {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  creatorEmail String?
+
   passages    Passage[]
   attempts    UserExamAttempt[]
 
@@ -44,6 +51,8 @@ model Passage {
   
   title     String
   text      String?  @db.Text // HTML or rich text for the passage content
+  body      String?  @db.Text // stores the raw markdown/text body
+  instruction String? @db.Text // stores the raw instruction
   pdfUrl    String?  // Cloudinary URL if the teacher uploaded a PDF
   imageUrl  String?  // Cloudinary URL if the teacher uploaded an image
   order     Int      // 1, 2, or 3 for IELTS Academic Reading passages

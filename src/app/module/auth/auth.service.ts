@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
 //src/app/module/auth/auth.service.ts
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -155,29 +156,28 @@ const getMe = async (userId: string) => {
 
   return user;
 };
-const getNewToken = async (refreshToken : string, sessionToken : string) => {
-
-    const isSessionTokenExists = await prisma.session.findUnique({
-        where : {
-            token : sessionToken,
-        },
-        include : {
-            user : true,
-        }
-    })
-
-    if(!isSessionTokenExists){
-        throw new AppError(status.UNAUTHORIZED, "Invalid session token");
-    }
-
+const getNewToken = async (refreshToken : string, sessionToken : string | undefined) => {
     const verifiedRefreshToken = jwtUtils.verifyToken(refreshToken, envVars.REFRESH_TOKEN_SECRET)
-
 
     if(!verifiedRefreshToken.success){
         throw new AppError(status.UNAUTHORIZED, "Invalid refresh token");
     }
 
     const data = verifiedRefreshToken.data as JwtPayload;
+
+    // ✅ Session fetches are optional and fail-safe during refresh
+    let session: any = null;
+    if (sessionToken) {
+        try {
+            session = await auth.api.getSession({
+                headers: {
+                    Cookie: `better-auth.session_token=${sessionToken}`,
+                },
+            });
+        } catch (err) {
+            console.error("Error fetching session in getNewToken:", err);
+        }
+    }
 
     const newAccessToken = tokenUtils.getAccessToken({
         userId: data.userId,
@@ -201,16 +201,21 @@ const getNewToken = async (refreshToken : string, sessionToken : string) => {
         needPasswordChange: data.needPasswordChange,
     });
 
-    const { token } = await prisma.session.update({
-        where: {
-            token: sessionToken,
-        },
-        data: {
-            token: sessionToken,
-            expiresAt: new Date(Date.now() + SESSION_DURATION_MS),
-            updatedAt: new Date(),
-        },
-    });
+    if (session && session.session) {
+        try {
+            await prisma.session.update({
+                where: {
+                    id: session.session.id,
+                },
+                data: {
+                    expiresAt: new Date(Date.now() + SESSION_DURATION_MS),
+                    updatedAt: new Date(),
+                },
+            });
+        } catch (err) {
+            // Safe to ignore if session is Redis-only or not in DB
+        }
+    }
 
     // Parse token expiration from JWT payload and save to Account
     const decodedAccessToken: any = jwtUtils.verifyToken(newAccessToken, envVars.ACCESS_TOKEN_SECRET);
@@ -241,7 +246,7 @@ const getNewToken = async (refreshToken : string, sessionToken : string) => {
     return {
         accessToken : newAccessToken,
         refreshToken : newRefreshToken,
-        sessionToken : token,
+        sessionToken : session && session.session ? sessionToken : undefined,
     }
 
 }
@@ -256,23 +261,28 @@ const changePassword = async (
     let sessionId: string | null = null;
 
     if (sessionToken) {
-        const sessionData = await prisma.session.findUnique({
-            where: { token: sessionToken },
-            include: { user: true },
+        const sessionData = await auth.api.getSession({
+            headers: {
+                Cookie: `better-auth.session_token=${sessionToken}`,
+            },
         });
 
-        if (!sessionData?.user) {
+        if (!sessionData || !sessionData.session || !sessionData.user) {
             throw new AppError(status.UNAUTHORIZED, "Invalid session token");
         }
         if (sessionData.user.id !== authenticatedUserId) {
             throw new AppError(status.UNAUTHORIZED, "Session does not match user");
         }
-        if (sessionData.expiresAt < new Date()) {
+        if (new Date(sessionData.session.expiresAt) < new Date()) {
             throw new AppError(status.UNAUTHORIZED, "Session token has expired");
         }
 
-        user = sessionData.user;
-        sessionId = sessionData.id;
+        const u = await prisma.user.findUnique({ where: { id: sessionData.user.id } });
+        if (!u) {
+            throw new AppError(status.NOT_FOUND, "User not found");
+        }
+        user = u;
+        sessionId = sessionData.session.id;
     } else {
         const u = await prisma.user.findUnique({ where: { id: authenticatedUserId } });
         if (!u) {
@@ -311,21 +321,33 @@ const changePassword = async (
         let newSessionToken: string | null = null;
 
         if (sessionId) {
-            newSessionToken = randomBytes(32).toString("hex");
-            await prisma.session.update({
-                where: { id: sessionId },
-                data: {
-                    token: newSessionToken,
-                    expiresAt: new Date(Date.now() + SESSION_DURATION_MS),
-                    updatedAt: new Date(),
-                },
-            });
+            // Revoke current session
+            try {
+                await auth.api.revokeSession({
+                    body: {
+                        token: sessionToken!
+                    },
+                    headers: {}
+                });
+            } catch (err) {
+                // Ignore if it fails
+            }
+            
+            // Delete other sessions in DB (if any)
             await prisma.session.deleteMany({
                 where: {
                     userId: user.id,
-                    token: { not: newSessionToken },
                 },
             });
+
+            // Create new session by signing in again
+            const loginRes = await auth.api.signInEmail({
+                body: {
+                    email: user.email,
+                    password: newPassword,
+                },
+            });
+            newSessionToken = loginRes.token;
         } else {
             await prisma.session.deleteMany({
                 where: { userId: user.id },

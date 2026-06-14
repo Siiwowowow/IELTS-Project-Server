@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 //src/app/module/auth/auth.controller.ts
 import { Request, Response } from "express";
 import { catchAsync } from "../../shared/catchAsync.js";
@@ -93,7 +94,12 @@ const getNewToken = catchAsync(
 
         tokenUtils.setAccessTokenCookie(res, accessToken);
         tokenUtils.setRefreshTokenCookie(res, newRefreshToken);
-        tokenUtils.setBetterAuthSessionCookie(res, sessionToken);
+        
+        if (sessionToken) {
+            tokenUtils.setBetterAuthSessionCookie(res, sessionToken);
+        } else {
+            tokenUtils.clearBetterAuthSessionCookie(res);
+        }
 
         sendResponse(res, {
             httpCode: status.OK,
@@ -102,7 +108,7 @@ const getNewToken = catchAsync(
             data: {
                 accessToken,
                 refreshToken: newRefreshToken,
-                sessionToken,
+                sessionToken: sessionToken || null,
             },
         });
     }
@@ -203,15 +209,25 @@ const googleLogin = catchAsync((req: Request, res: Response) => {
 
   const encodedRedirectPath = encodeURIComponent(redirectPath);
 
-  const callbackURL = `${envVars.BETTER_AUTH_URL}/api/v1/auth/google/success?redirect=${encodedRedirectPath}`;
+  const callbackURL = `${req.protocol}://${req.get("host")}/api/v1/auth/google/success?redirect=${encodedRedirectPath}`;
 
   const html = `
     <html>
       <body>
         <p>Redirecting to Google...</p>
+        <p id="debug-info" style="font-family: monospace; font-size: 12px; color: #555; white-space: pre-wrap; margin-top: 20px;"></p>
 
         <script>
-          fetch("${envVars.BETTER_AUTH_URL}/api/auth/sign-in/social", {
+          function log(msg) {
+            console.log(msg);
+            document.getElementById('debug-info').innerText += msg + "\\n";
+          }
+          
+          log("Starting Google Auth flow...");
+          log("POST ${envVars.BETTER_AUTH_URL}/sign-in/social");
+          log("Callback: ${callbackURL}");
+
+          fetch("${envVars.BETTER_AUTH_URL}/sign-in/social", {
             method: "POST",
             headers: {
               "Content-Type": "application/json"
@@ -222,16 +238,21 @@ const googleLogin = catchAsync((req: Request, res: Response) => {
               callbackURL: "${callbackURL}"
             })
           })
-          .then(res => res.json())
+          .then(res => {
+            log("Status: " + res.status);
+            return res.json();
+          })
           .then(data => {
+            log("Response Data: " + JSON.stringify(data, null, 2));
             if (data.url) {
+              log("Redirecting to: " + data.url);
               window.location.href = data.url;
             } else {
-              document.body.innerHTML = "Failed to redirect";
+              document.body.innerHTML += "<br/><b>Failed to get redirect URL from server.</b>";
             }
           })
           .catch(err => {
-            document.body.innerHTML = err.message;
+            log("Error: " + err.message);
           });
         </script>
       </body>
@@ -245,7 +266,7 @@ const googleLoginSuccess = catchAsync(async (req: Request, res: Response) => {
   const sessionToken = req.cookies["better-auth.session_token"];
 
   if (!sessionToken) {
-    return res.redirect(`${envVars.FRONTEND_URL}/?login=error`);
+    return res.redirect(`${envVars.FRONTEND_URL}/?login=error&reason=no_session_token_cookie`);
   }
 
  const session = await auth.api.getSession({
@@ -256,18 +277,27 @@ const googleLoginSuccess = catchAsync(async (req: Request, res: Response) => {
 
 console.log("GOOGLE SESSION:", session?.user); // 🔥 DEBUG (temporary)
 
-  if (!session || !session.user) {
-    return res.redirect(`${envVars.FRONTEND_URL}/?login=error`);
+  if (!session) {
+    return res.redirect(`${envVars.FRONTEND_URL}/?login=error&reason=invalid_session_from_better_auth`);
   }
 
-  const result = await AuthService.googleLoginSuccess(session);
+  if (!session.user) {
+    return res.redirect(`${envVars.FRONTEND_URL}/?login=error&reason=no_user_in_session`);
+  }
 
-  const { accessToken, refreshToken } = result;
+  try {
+    const result = await AuthService.googleLoginSuccess(session);
 
-  tokenUtils.setAccessTokenCookie(res, accessToken);
-  tokenUtils.setRefreshTokenCookie(res, refreshToken);
+    const { accessToken, refreshToken } = result;
 
-  return res.redirect(`${envVars.FRONTEND_URL}/?login=success`);
+    tokenUtils.setAccessTokenCookie(res, accessToken);
+    tokenUtils.setRefreshTokenCookie(res, refreshToken);
+
+    return res.redirect(`${envVars.FRONTEND_URL}/?login=success`);
+  } catch (error: any) {
+    console.error("googleLoginSuccess AuthService error:", error);
+    return res.redirect(`${envVars.FRONTEND_URL}/?login=error&reason=auth_service_failed&message=${encodeURIComponent(error.message || 'unknown')}`);
+  }
 });
 
 const handleOAuthError = catchAsync((req: Request, res: Response) => {
