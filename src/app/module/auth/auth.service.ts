@@ -169,9 +169,10 @@ const getNewToken = async (refreshToken : string, sessionToken : string | undefi
     let session: any = null;
     if (sessionToken) {
         try {
+            const cookieName = envVars.NODE_ENV === "production" ? "__Secure-better-auth.session_token" : "better-auth.session_token";
             session = await auth.api.getSession({
                 headers: {
-                    Cookie: `better-auth.session_token=${sessionToken}`,
+                    Cookie: `${cookieName}=${sessionToken}`,
                 },
             });
         } catch (err) {
@@ -261,9 +262,10 @@ const changePassword = async (
     let sessionId: string | null = null;
 
     if (sessionToken) {
+        const cookieName = envVars.NODE_ENV === "production" ? "__Secure-better-auth.session_token" : "better-auth.session_token";
         const sessionData = await auth.api.getSession({
             headers: {
-                Cookie: `better-auth.session_token=${sessionToken}`,
+                Cookie: `${cookieName}=${sessionToken}`,
             },
         });
 

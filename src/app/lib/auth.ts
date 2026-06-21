@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // src/app/lib/auth.ts
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
@@ -91,35 +92,38 @@ export const auth = betterAuth({
     emailOTP({
         overrideDefaultEmailVerification: true,
         async sendVerificationOTP({email, otp, type}) {
+            console.log(`[Better-Auth] sendVerificationOTP: Type=${type}, Email=${email}`);
             if (email === envVars.SUPER_ADMIN_EMAIL) return;
 
-            if(type === "email-verification"){
-              const user = await prisma.user.findUnique({
-                where : {
-                    email,
-                }
-              })
-              
-              if(user && !user.emailVerified){
-                sendEmail({
+            try {
+              if (type === "email-verification") {
+                const user = await prisma.user.findUnique({
+                  where: {
+                      email,
+                  }
+                });
+                
+                console.log(`[Better-Auth] email-verification user found in database:`, !!user);
+                
+                await sendEmail({
                     to : email,
                     subject : "Verify your email",
                     templateName : "otp",
                     templateData :{
-                        name : user.name,
+                        name : user?.name || "User",
                         otp,
                     }
-                })
-              }
-            }else if(type === "forget-password"){
+                });
+                console.log(`[Better-Auth] Verification email successfully sent to ${email}`);
+              } else if (type === "forget-password") {
                 const user = await prisma.user.findUnique({
                     where : {
                         email,
                     }
-                })
+                });
 
-                if(user){
-                    sendEmail({
+                if (user) {
+                    await sendEmail({
                         to : email,
                         subject : "Password Reset OTP",
                         templateName : "otp",
@@ -127,8 +131,14 @@ export const auth = betterAuth({
                             name : user.name,
                             otp,
                         }
-                    })
+                    });
+                    console.log(`[Better-Auth] Password reset email successfully sent to ${email}`);
+                } else {
+                    console.warn(`[Better-Auth] Password reset user not found in database for email: ${email}`);
                 }
+              }
+            } catch (err: any) {
+              console.error(`[Better-Auth] Error sending OTP email for ${email}:`, err.message || err);
             }
         },
         expiresIn : 2 * 60, // 2 minutes in seconds

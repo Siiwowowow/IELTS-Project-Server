@@ -69,6 +69,17 @@ const loadEnvVariables = (): EnvConfig => {
         'SUPER_ADMIN_PASSWORD',
     ]
 
+const getCleanEnv = (key: string): string => {
+        const val = process.env[key] || "";
+        return val.trim().replace(/^["']|["']$/g, "");
+    };
+
+    const getCleanEnvOptional = (key: string): string | undefined => {
+        const val = process.env[key];
+        if (!val) return undefined;
+        return val.trim().replace(/^["']|["']$/g, "");
+    };
+
     requireEnvVariable.forEach((variable) => {
         if (!process.env[variable]) {
             // throw new Error(`Environment variable ${variable} is required but not set in .env file.`);
@@ -77,36 +88,36 @@ const loadEnvVariables = (): EnvConfig => {
     })
 
     return {
-        NODE_ENV: process.env.NODE_ENV as string,
-        PORT: process.env.PORT as string,
-        DATABASE_URL: process.env.DATABASE_URL as string,
-        BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET as string,
-        BETTER_AUTH_URL: process.env.BETTER_AUTH_URL as string,
-        ACCESS_TOKEN_SECRET: process.env.ACCESS_TOKEN_SECRET as string,
-        REFRESH_TOKEN_SECRET: process.env.REFRESH_TOKEN_SECRET as string,
-        ACCESS_TOKEN_EXPIRES_IN: process.env.ACCESS_TOKEN_EXPIRES_IN as string,
-        REFRESH_TOKEN_EXPIRES_IN: process.env.REFRESH_TOKEN_EXPIRES_IN as string,
-        BETTER_AUTH_SESSION_TOKEN_EXPIRES_IN: process.env.BETTER_AUTH_SESSION_TOKEN_EXPIRES_IN as string,
-        BETTER_AUTH_SESSION_TOKEN_UPDATE_AGE: process.env.BETTER_AUTH_SESSION_TOKEN_UPDATE_AGE as string,
+        NODE_ENV: getCleanEnv('NODE_ENV'),
+        PORT: getCleanEnv('PORT'),
+        DATABASE_URL: getCleanEnv('DATABASE_URL'),
+        BETTER_AUTH_SECRET: getCleanEnv('BETTER_AUTH_SECRET'),
+        BETTER_AUTH_URL: getCleanEnv('BETTER_AUTH_URL'),
+        ACCESS_TOKEN_SECRET: getCleanEnv('ACCESS_TOKEN_SECRET'),
+        REFRESH_TOKEN_SECRET: getCleanEnv('REFRESH_TOKEN_SECRET'),
+        ACCESS_TOKEN_EXPIRES_IN: getCleanEnv('ACCESS_TOKEN_EXPIRES_IN'),
+        REFRESH_TOKEN_EXPIRES_IN: getCleanEnv('REFRESH_TOKEN_EXPIRES_IN'),
+        BETTER_AUTH_SESSION_TOKEN_EXPIRES_IN: getCleanEnv('BETTER_AUTH_SESSION_TOKEN_EXPIRES_IN'),
+        BETTER_AUTH_SESSION_TOKEN_UPDATE_AGE: getCleanEnv('BETTER_AUTH_SESSION_TOKEN_UPDATE_AGE'),
         EMAIL_SENDER: {
-            SMTP_USER: process.env.EMAIL_SENDER_SMTP_USER as string,
-            SMTP_PASS: process.env.EMAIL_SENDER_SMTP_PASS as string,
-            SMTP_HOST: process.env.EMAIL_SENDER_SMTP_HOST as string,
-            SMTP_PORT: process.env.EMAIL_SENDER_SMTP_PORT as string,
-            SMTP_FROM: process.env.EMAIL_SENDER_SMTP_FROM as string,
+            SMTP_USER: getCleanEnv('EMAIL_SENDER_SMTP_USER'),
+            SMTP_PASS: getCleanEnv('EMAIL_SENDER_SMTP_PASS'),
+            SMTP_HOST: getCleanEnv('EMAIL_SENDER_SMTP_HOST'),
+            SMTP_PORT: getCleanEnv('EMAIL_SENDER_SMTP_PORT'),
+            SMTP_FROM: getCleanEnv('EMAIL_SENDER_SMTP_FROM'),
         },
-        GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID as string,
-        GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET as string,
-        GOOGLE_CALLBACK_URL: process.env.GOOGLE_CALLBACK_URL as string,
-        FRONTEND_URL: process.env.FRONTEND_URL as string,
+        GOOGLE_CLIENT_ID: getCleanEnv('GOOGLE_CLIENT_ID'),
+        GOOGLE_CLIENT_SECRET: getCleanEnv('GOOGLE_CLIENT_SECRET'),
+        GOOGLE_CALLBACK_URL: getCleanEnv('GOOGLE_CALLBACK_URL'),
+        FRONTEND_URL: getCleanEnv('FRONTEND_URL'),
         CLOUDINARY: {
-            CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME as string,
-            CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY as string,
-            CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET as string,
+            CLOUDINARY_CLOUD_NAME: getCleanEnv('CLOUDINARY_CLOUD_NAME'),
+            CLOUDINARY_API_KEY: getCleanEnv('CLOUDINARY_API_KEY'),
+            CLOUDINARY_API_SECRET: getCleanEnv('CLOUDINARY_API_SECRET'),
         },  
-        SUPER_ADMIN_EMAIL: process.env.SUPER_ADMIN_EMAIL as string,
-        SUPER_ADMIN_PASSWORD: process.env.SUPER_ADMIN_PASSWORD as string,
-        REDIS_URL: process.env.REDIS_URL as string | undefined,
+        SUPER_ADMIN_EMAIL: getCleanEnv('SUPER_ADMIN_EMAIL'),
+        SUPER_ADMIN_PASSWORD: getCleanEnv('SUPER_ADMIN_PASSWORD'),
+        REDIS_URL: getCleanEnvOptional('REDIS_URL'),
     }
 
 }

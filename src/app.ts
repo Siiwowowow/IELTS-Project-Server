@@ -13,6 +13,7 @@ import { globalErrorHandler } from "./app/middleware/globalErrorHandler.js";
 
 
 const app: Application = express();
+app.set("trust proxy", true);
 app.set("query parser", (str : string) => qs.parse(str));
 
 app.set("view engine", "ejs");
