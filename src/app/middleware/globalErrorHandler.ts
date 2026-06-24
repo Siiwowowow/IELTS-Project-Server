@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { NextFunction, Request, Response } from "express";
 import status from "http-status";
@@ -12,17 +13,31 @@ import { TErrorResponse, TErrorSources } from "../interfaces/error.interface.js"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const globalErrorHandler = async (err: any, req: Request, res: Response, next: NextFunction) => {
-    if (envVars.NODE_ENV === 'development') {
-        console.log("Error from Global Error Handler", err);
-    }
+    console.error("Error from Global Error Handler:", err);
 
-    if(req.file){
-        await deleteFileFromCloudinary(req.file.path)
-    }
+    // Safely attempt file cleanup only if a path exists (e.g. for disk storage)
+    try {
+        if (req.file && typeof req.file.path === 'string') {
+            await deleteFileFromCloudinary(req.file.path);
+        }
 
-    if(req.files && Array.isArray(req.files) && req.files.length > 0){
-        const imageUrls = req.files.map((file) => file.path);
-        await Promise.all(imageUrls.map(url => deleteFileFromCloudinary(url))); 
+        if (req.files) {
+            let filesArray: any[] = [];
+            if (Array.isArray(req.files)) {
+                filesArray = req.files;
+            } else if (typeof req.files === 'object') {
+                // If it is an object/dictionary (e.g. from multer.fields)
+                filesArray = Object.values(req.files).flat().filter(Boolean);
+            }
+            
+            for (const file of filesArray) {
+                if (file && typeof file.path === 'string') {
+                    await deleteFileFromCloudinary(file.path);
+                }
+            }
+        }
+    } catch (cleanupError) {
+        console.error("Error during file cleanup in globalErrorHandler:", cleanupError);
     }
 
     let errorSources: TErrorSources[] = []
@@ -84,8 +99,8 @@ export const globalErrorHandler = async (err: any, req: Request, res: Response, 
         success: false,
         message: message,
         errorSources,
-        error: envVars.NODE_ENV === 'development' ? err : undefined,
-        stack: envVars.NODE_ENV === 'development' ? stack : undefined,
+        error: err,
+        stack: stack,
     }
 
     res.status(statusCode).json(errorResponse);

@@ -12,6 +12,11 @@ const bootstrap = async() => {
         server = app.listen(envVars.PORT, () => {
             console.log(`Server is running on http://localhost:${envVars.PORT}`);
         });
+        
+        // Increase timeouts for large file uploads (10 minutes)
+        server.timeout = 600000;
+        server.keepAliveTimeout = 600000;
+        server.headersTimeout = 605000; // should be slightly higher than keepAliveTimeout
     } catch (error) {
         console.error('Failed to start server:', error);
     }   

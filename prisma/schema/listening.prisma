@@ -1,0 +1,118 @@
+// d:\Next JS\IELTS-Project-Server\prisma\schema\listening.prisma
+
+model ListeningExam {
+  id          String   @id @default(uuid())
+  title       String
+  description String?  @db.Text
+  duration    Int      @default(40) // in minutes
+  isPublished Boolean  @default(false)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  creatorEmail String?
+
+  sections    ListeningSection[]
+  attempts    UserListeningAttempt[]
+
+  @@map("listening_exams")
+}
+
+model ListeningSection {
+  id          String   @id @default(uuid())
+  examId      String
+  exam        ListeningExam @relation(fields: [examId], references: [id], onDelete: Cascade)
+  
+  title       String   // e.g. "Section 1", "Part 1"
+  audioUrl    String   // URL to audio file (Cloudinary etc)
+  youtubeUrl  String?
+  script      String?  @db.Text
+  instruction String?  @db.Text
+  order       Int      // 1, 2, 3, or 4
+
+  questionGroups ListeningQuestionGroup[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("listening_sections")
+}
+
+model ListeningQuestionGroup {
+  id             String            @id @default(uuid())
+  sectionId      String
+  section        ListeningSection  @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  
+  type           QuestionGroupType
+  instruction    String?           @db.Text // e.g., Questions 1-5
+  passageSegment String?           @db.Text // for inline blanks or tables
+  options        Json?             // options list for matching/dropdowns
+  imageUrl       String?           // diagram/map labeling image
+  order          Int               // order inside the section
+
+  questions      ListeningQuestion[]
+
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@map("listening_question_groups")
+}
+
+model ListeningQuestion {
+  id             String        @id @default(uuid())
+  groupId        String
+  group          ListeningQuestionGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  
+  questionNumber Int           // Global 1-40
+  questionText   String?       @db.Text
+  options        Json?         // MCQ choices
+  correctAnswer  String
+  explanation    String?       @db.Text
+
+  answers        UserListeningAnswer[]
+
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@map("listening_questions")
+}
+
+model UserListeningAttempt {
+  id        String        @id @default(uuid())
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  examId    String
+  exam      ListeningExam @relation(fields: [examId], references: [id], onDelete: Cascade)
+  
+  startTime DateTime      @default(now())
+  endTime   DateTime?
+  status    AttemptStatus @default(IN_PROGRESS)
+  
+  score     Float?        // Out of 40
+  bandScore Float?        // Calculated band
+
+  answers   UserListeningAnswer[]
+
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@map("user_listening_attempts")
+}
+
+model UserListeningAnswer {
+  id              String               @id @default(uuid())
+  attemptId       String
+  attempt         UserListeningAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  
+  questionId      String
+  question        ListeningQuestion    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  
+  submittedAnswer String?
+  isCorrect       Boolean?
+
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  @@map("user_listening_answers")
+}

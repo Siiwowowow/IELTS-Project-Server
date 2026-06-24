@@ -1,8 +1,10 @@
-// src/app/config/cloudinary.config.ts
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { v2 as cloudinary, UploadApiResponse } from "cloudinary";
 import status from "http-status";
 import AppError from "../errorHelpers/AppError.js";
 import { envVars } from "./env.js";
+import fs from "fs";
+import path from "path";
 
 cloudinary.config({
     cloud_name: envVars.CLOUDINARY.CLOUDINARY_CLOUD_NAME,
@@ -37,29 +39,81 @@ export const uploadFileToCloudinary = async (
         "-" +
         fileNameWithoutExtension;
 
-    const folder = extension === "pdf" ? "pdfs" : "images";
+    // Route files to appropriate folders and assign explicit resource types
+    let folder = "images";
+    let resource_type = "auto";
 
+    if (extension === "pdf") {
+        folder = "pdfs";
+        resource_type = "raw";
+    } else if (["mp3", "wav", "m4a", "ogg", "aac", "flac", "mpeg", "webm", "mp4"].includes(extension || "")) {
+        folder = "audios";
+        resource_type = "video"; // Cloudinary requires audio to be uploaded under 'video'
+    }
 
-    return new Promise((resolve, reject) => {
-        cloudinary.uploader.upload_stream(
-            {
-                resource_type: "auto",
-                public_id: `ph-healthcare/${folder}/${uniqueName}`,
-                folder : `ph-healthcare/${folder}`,
-            },
-            (error, result) => {
-                if(error){
-                    return reject(new AppError(status.INTERNAL_SERVER_ERROR, "Failed to upload file to Cloudinary"));
+    const uploadOptions = {
+        resource_type: resource_type as any,
+        public_id: uniqueName,
+        folder : `ph-healthcare/${folder}`,
+        timeout: 600000, // 10 minutes timeout (in milliseconds) to prevent Request Timeout (499)
+    };
+
+    if (buffer.length > 10 * 1024 * 1024) {
+        // Use temp file and upload_large for files > 10MB to support chunked upload robustly
+        const tempDir = path.join(process.cwd(), "temp_uploads");
+        if (!fs.existsSync(tempDir)) {
+            fs.mkdirSync(tempDir, { recursive: true });
+        }
+        const tempFilePath = path.join(tempDir, `temp_${uniqueName}.${extension}`);
+        
+        await fs.promises.writeFile(tempFilePath, buffer);
+
+        return new Promise((resolve, reject) => {
+            cloudinary.uploader.upload_large(
+                tempFilePath,
+                {
+                    ...uploadOptions,
+                    chunk_size: 6000000, // 6MB chunks (must be >= 5MB to satisfy Cloudinary constraints)
+                },
+                async (error, result) => {
+                    // Always cleanup the temp file
+                    try {
+                        await fs.promises.unlink(tempFilePath);
+                    } catch (cleanupError) {
+                        console.error("Failed to delete temp file:", cleanupError);
+                    }
+
+                    if (error) {
+                        console.error("Cloudinary upload_large error details:", error);
+                        return reject(new AppError(status.INTERNAL_SERVER_ERROR, `Failed to upload file to Cloudinary: ${error.message || JSON.stringify(error)}`));
+                    }
+                    resolve(result as UploadApiResponse);
                 }
-                resolve(result as UploadApiResponse);
-            }
-        ).end(buffer);
-    })
-
-
+            );
+        });
+    } else {
+        // Use standard upload stream for normal/small files <= 10MB
+        return new Promise((resolve, reject) => {
+            const uploadStream = cloudinary.uploader.upload_stream(
+                uploadOptions,
+                (error, result) => {
+                    if(error){
+                        console.error("Cloudinary upload error details:", error);
+                        return reject(new AppError(status.INTERNAL_SERVER_ERROR, `Failed to upload file to Cloudinary: ${error.message || JSON.stringify(error)}`));
+                    }
+                    resolve(result as UploadApiResponse);
+                }
+            );
+            uploadStream.end(buffer);
+        });
+    }
 }
 
 export const deleteFileFromCloudinary = async (url : string) => {
+    if (!url || typeof url !== 'string') {
+        console.warn("Invalid or missing URL provided to deleteFileFromCloudinary");
+        return;
+    }
 
     try {
         const regex = /\/v\d+\/(.+?)(?:\.[a-zA-Z0-9]+)+$/;
@@ -69,13 +123,21 @@ export const deleteFileFromCloudinary = async (url : string) => {
         if (match && match[1]) {
             const publicId = match[1];
 
+            // Parse resource type from url path to delete the file correctly from Cloudinary
+            let resource_type: "image" | "video" | "raw" = "image";
+            if (url.includes("/video/upload/")) {
+                resource_type = "video";
+            } else if (url.includes("/raw/upload/")) {
+                resource_type = "raw";
+            }
+
             await cloudinary.uploader.destroy(
                 publicId, {
-                resource_type: "image"
+                resource_type: resource_type
             }
             )
 
-            console.log(`File ${publicId} deleted from cloudinary`);
+            console.log(`File ${publicId} (type: ${resource_type}) deleted from cloudinary`);
         }
 
     } catch (error) {

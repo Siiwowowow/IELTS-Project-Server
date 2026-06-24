@@ -21,6 +21,7 @@ model User {
   sessions           Session[]
   accounts           Account[]
   attempts           UserExamAttempt[]
+  listeningAttempts  UserListeningAttempt[]
 
   @@map("student")
 }
