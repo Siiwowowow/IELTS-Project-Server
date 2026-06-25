@@ -1,0 +1,99 @@
+// prisma/schema/writing.prisma
+
+enum WritingExamType {
+  ACADEMIC
+  GENERAL_TRAINING
+}
+
+enum WritingTaskType {
+  TASK_1
+  TASK_2
+}
+
+model WritingExam {
+  id          String          @id @default(uuid())
+  title       String
+  description String?         @db.Text
+  examType    WritingExamType @default(ACADEMIC)
+  duration    Int             @default(60) // in minutes
+  isPublished Boolean         @default(false)
+
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  creatorEmail String?
+
+  tasks       WritingTask[]
+  attempts    UserWritingAttempt[]
+
+  @@map("writing_exams")
+}
+
+model WritingTask {
+  id          String          @id @default(uuid())
+  examId      String
+  exam        WritingExam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+
+  taskType    WritingTaskType // TASK_1 or TASK_2
+  instruction String          @db.Text // The prompt/question text
+  imageUrl    String?         // Cloudinary URL for chart/graph/diagram (Task 1 Academic)
+  pdfUrl      String?         // Cloudinary URL for uploaded PDF stimulus
+  minWords    Int             @default(150) // 150 for Task 1, 250 for Task 2
+  modelAnswer String?         @db.Text // Optional model answer for teacher reference
+  order       Int             // 1 or 2
+
+  responses   UserWritingResponse[]
+
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@map("writing_tasks")
+}
+
+model UserWritingAttempt {
+  id        String        @id @default(uuid())
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  examId    String
+  exam      WritingExam   @relation(fields: [examId], references: [id], onDelete: Cascade)
+
+  startTime DateTime      @default(now())
+  endTime   DateTime?
+  status    AttemptStatus @default(IN_PROGRESS)
+
+  bandScore Float?        // Overall calculated writing band (0-9)
+
+  responses UserWritingResponse[]
+
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@map("user_writing_attempts")
+}
+
+model UserWritingResponse {
+  id              String              @id @default(uuid())
+  attemptId       String
+  attempt         UserWritingAttempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  taskId          String
+  task            WritingTask         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  essay           String?             @db.Text // The student's written response
+  wordCount       Int?                // Word count of the submitted essay
+
+  // IELTS Writing grading criteria (each 0-9, set by teacher/admin)
+  taskAchievement    Float?           // Task Achievement / Task Response
+  coherenceCohesion  Float?           // Coherence and Cohesion
+  lexicalResource    Float?           // Lexical Resource
+  grammaticalRange   Float?           // Grammatical Range and Accuracy
+
+  taskBandScore      Float?           // Average of the 4 criteria for this task
+  feedback           String?          @db.Text // Teacher's written feedback
+
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@map("user_writing_responses")
+}

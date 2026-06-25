@@ -22,6 +22,7 @@ model User {
   accounts           Account[]
   attempts           UserExamAttempt[]
   listeningAttempts  UserListeningAttempt[]
+  writingAttempts    UserWritingAttempt[]
 
   @@map("student")
 }
