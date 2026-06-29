@@ -1,0 +1,101 @@
+// prisma/schema/speaking.prisma
+
+model SpeakingExam {
+  id           String                @id @default(uuid())
+  title        String
+  description  String?               @db.Text
+  duration     Int                   @default(15) // in minutes
+  isPublished  Boolean               @default(false)
+  creatorEmail String?
+
+  parts        SpeakingPart[]
+  attempts     UserSpeakingAttempt[]
+
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  @@map("speaking_exams")
+}
+
+model SpeakingPart {
+  id              String             @id @default(uuid())
+  examId          String
+  exam            SpeakingExam       @relation(fields: [examId], references: [id], onDelete: Cascade)
+  
+  partNumber      Int                // 1, 2, or 3
+  title           String             // e.g. "Part 1: Interview", "Part 2: Cue Card", "Part 3: Discussion"
+  instruction     String?            @db.Text // Cue card cue/bullet points or general info
+  preparationTime Int                @default(0) // Prep time in seconds (e.g. 60 for Part 2)
+  speakingTime    Int                @default(0) // Minimum speaking/recording time in seconds (e.g. 120 for Part 2)
+  order           Int                // 1, 2, or 3
+
+  questions       SpeakingQuestion[]
+
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@map("speaking_parts")
+}
+
+model SpeakingQuestion {
+  id           String               @id @default(uuid())
+  partId       String
+  part         SpeakingPart         @relation(fields: [partId], references: [id], onDelete: Cascade)
+  
+  questionText String               @db.Text
+  audioUrl     String?              // Examiner pre-recorded voice prompt
+  order        Int
+
+  answers      UserSpeakingAnswer[]
+
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  @@map("speaking_questions")
+}
+
+model UserSpeakingAttempt {
+  id        String               @id @default(uuid())
+  userId    String
+  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  examId    String
+  exam      SpeakingExam         @relation(fields: [examId], references: [id], onDelete: Cascade)
+  
+  startTime DateTime             @default(now())
+  endTime   DateTime?
+  status    AttemptStatus        @default(IN_PROGRESS)
+  
+  bandScore Float?               // Overall IELTS Speaking band score (0-9)
+
+  answers   UserSpeakingAnswer[]
+
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+
+  @@map("user_speaking_attempts")
+}
+
+model UserSpeakingAnswer {
+  id                 String              @id @default(uuid())
+  attemptId          String
+  attempt            UserSpeakingAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  
+  questionId         String
+  question           SpeakingQuestion    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  
+  audioUrl           String?             // Audio URL recorded and uploaded by the student
+
+  // Manual Grading Criteria
+  fluencyScore       Float?
+  lexicalScore       Float?
+  grammarScore       Float?
+  pronunciationScore Float?
+  bandScore          Float?              // Average of the 4 scores
+  feedback           String?             @db.Text
+
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  @@map("user_speaking_answers")
+}

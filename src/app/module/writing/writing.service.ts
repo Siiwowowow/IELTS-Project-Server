@@ -244,13 +244,15 @@ const submitExamAttempt = async (
 
   // Validate that submitted taskIds belong to this exam
   const examTaskIds = new Set(exam.tasks.map((t) => t.id));
-  for (const resp of payload.responses) {
+  const submittedResponsesMap = new Map<string, { essay?: string; wordCount?: number }>();
+  for (const resp of (payload.responses || [])) {
     if (!examTaskIds.has(resp.taskId)) {
       throw new AppError(
         status.BAD_REQUEST,
         `Task ID ${resp.taskId} does not belong to this exam`
       );
     }
+    submittedResponsesMap.set(resp.taskId, { essay: resp.essay, wordCount: resp.wordCount });
   }
 
   return await prisma.$transaction(
@@ -265,16 +267,16 @@ const submitExamAttempt = async (
         },
       });
 
-      for (const resp of payload.responses) {
-        // Auto-calculate word count if not provided
-        const wordCount =
-          resp.wordCount ?? resp.essay.trim().split(/\s+/).filter(Boolean).length;
+      for (const task of exam.tasks) {
+        const submitted = submittedResponsesMap.get(task.id);
+        const essayContent = submitted?.essay ?? "";
+        const wordCount = submitted?.wordCount ?? essayContent.trim().split(/\s+/).filter(Boolean).length;
 
         await tx.userWritingResponse.create({
           data: {
             attemptId: attempt.id,
-            taskId: resp.taskId,
-            essay: resp.essay,
+            taskId: task.id,
+            essay: essayContent,
             wordCount,
           },
         });

@@ -300,55 +300,58 @@ const submitExamAttempt = async (
     throw new AppError(status.NOT_FOUND, "Listening exam not found");
   }
 
-  // Extract all questions for grading
-  const allQuestionsMap = new Map<string, string>(); // questionId -> correctAnswer
-  exam.sections.forEach((section) => {
-    section.questionGroups.forEach((group) => {
-      group.questions.forEach((q) => {
-        allQuestionsMap.set(q.id, q.correctAnswer);
-      });
-    });
+  // Grade user submissions for all questions in the exam
+  const submittedAnswersMap = new Map<string, string>();
+  (payload.answers || []).forEach((ans) => {
+    if (ans.questionId) {
+      submittedAnswersMap.set(ans.questionId, ans.submittedAnswer || "");
+    }
   });
 
   let correctCount = 0;
+  const formattedAnswers: { questionId: string; submittedAnswer: string; isCorrect: boolean }[] = [];
 
-  // Grade user submissions
-  const formattedAnswers = payload.answers.map((ans) => {
-    const correctAnswer = allQuestionsMap.get(ans.questionId);
-    let isCorrect = false;
+  exam.sections.forEach((section) => {
+    section.questionGroups.forEach((group) => {
+      group.questions.forEach((q) => {
+        const submittedAnswer = submittedAnswersMap.get(q.id);
+        const correctAnswer = q.correctAnswer;
+        let isCorrect = false;
 
-    if (correctAnswer && ans.submittedAnswer) {
-      const cleanSub = ans.submittedAnswer.trim().toLowerCase();
-      const cleanCor = correctAnswer.trim().toLowerCase();
+        if (correctAnswer && submittedAnswer !== undefined && submittedAnswer !== null && submittedAnswer.trim() !== "") {
+          const cleanSub = submittedAnswer.trim().toLowerCase();
+          const cleanCor = correctAnswer.trim().toLowerCase();
 
-      // Flexible matching for True/False/Not Given and Yes/No/Not Given abbreviations
-      if (
-        (cleanSub === "t" && cleanCor === "true") ||
-        (cleanSub === "true" && cleanCor === "true") ||
-        (cleanSub === "f" && cleanCor === "false") ||
-        (cleanSub === "false" && cleanCor === "false") ||
-        (cleanSub === "ng" && cleanCor === "not given") ||
-        (cleanSub === "not given" && cleanCor === "not given") ||
-        (cleanSub === "y" && cleanCor === "yes") ||
-        (cleanSub === "yes" && cleanCor === "yes") ||
-        (cleanSub === "n" && cleanCor === "no") ||
-        (cleanSub === "no" && cleanCor === "no")
-      ) {
-        isCorrect = true;
-      } else if (cleanSub === cleanCor) {
-        isCorrect = true;
-      }
-    }
+          // Flexible matching for True/False/Not Given and Yes/No/Not Given abbreviations
+          if (
+            (cleanSub === "t" && cleanCor === "true") ||
+            (cleanSub === "true" && cleanCor === "true") ||
+            (cleanSub === "f" && cleanCor === "false") ||
+            (cleanSub === "false" && cleanCor === "false") ||
+            (cleanSub === "ng" && cleanCor === "not given") ||
+            (cleanSub === "not given" && cleanCor === "not given") ||
+            (cleanSub === "y" && cleanCor === "yes") ||
+            (cleanSub === "yes" && cleanCor === "yes") ||
+            (cleanSub === "n" && cleanCor === "no") ||
+            (cleanSub === "no" && cleanCor === "no")
+          ) {
+            isCorrect = true;
+          } else if (cleanSub === cleanCor) {
+            isCorrect = true;
+          }
+        }
 
-    if (isCorrect) {
-      correctCount++;
-    }
+        if (isCorrect) {
+          correctCount++;
+        }
 
-    return {
-      questionId: ans.questionId,
-      submittedAnswer: ans.submittedAnswer || "",
-      isCorrect,
-    };
+        formattedAnswers.push({
+          questionId: q.id,
+          submittedAnswer: submittedAnswer || "",
+          isCorrect,
+        });
+      });
+    });
   });
 
   const bandScore = calculateListeningBandScore(correctCount);
@@ -367,16 +370,14 @@ const submitExamAttempt = async (
       },
     });
 
-    for (const ans of formattedAnswers) {
-      await tx.userListeningAnswer.create({
-        data: {
-          attemptId: attempt.id,
-          questionId: ans.questionId,
-          submittedAnswer: ans.submittedAnswer,
-          isCorrect: ans.isCorrect,
-        },
-      });
-    }
+    await tx.userListeningAnswer.createMany({
+      data: formattedAnswers.map((ans) => ({
+        attemptId: attempt.id,
+        questionId: ans.questionId,
+        submittedAnswer: ans.submittedAnswer,
+        isCorrect: ans.isCorrect,
+      })),
+    });
 
     return await tx.userListeningAttempt.findUnique({
       where: { id: attempt.id },

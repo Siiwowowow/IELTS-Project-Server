@@ -21,7 +21,7 @@ export interface ICreateWritingExamPayload {
 
 export interface ISubmitWritingResponsePayload {
   taskId: string;
-  essay: string;
+  essay?: string;
   wordCount?: number;
 }
 

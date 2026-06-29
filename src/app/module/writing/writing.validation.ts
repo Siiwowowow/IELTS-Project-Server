@@ -33,7 +33,7 @@ const submitWritingAttemptZodSchema = z.object({
   responses: z.array(
     z.object({
       taskId: z.string().min(1, "Task ID is required"),
-      essay: z.string().min(1, "Essay content is required"),
+      essay: z.string().optional().default(""),
       wordCount: z.number().int().min(0).optional(),
     })
   ),

@@ -23,6 +23,7 @@ model User {
   attempts           UserExamAttempt[]
   listeningAttempts  UserListeningAttempt[]
   writingAttempts    UserWritingAttempt[]
+  speakingAttempts   UserSpeakingAttempt[]
 
   @@map("student")
 }

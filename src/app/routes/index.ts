@@ -4,6 +4,7 @@ import { UserRoutes } from "../module/user/user.route.js";
 import { ReadingRoutes } from "../module/reading/reading.route.js";
 import { ListeningRoutes } from "../module/listening/listening.route.js";
 import { WritingRoutes } from "../module/writing/writing.route.js";
+import { SpeakingRoutes } from "../module/speaking/speaking.route.js";
 
 const router=Router();
 
@@ -12,5 +13,6 @@ const router=Router();
  router.use("/reading", ReadingRoutes);
  router.use("/listening", ListeningRoutes);
  router.use("/writing", WritingRoutes);
+ router.use("/speaking", SpeakingRoutes);
 
 export const IndexRoutes=router;
