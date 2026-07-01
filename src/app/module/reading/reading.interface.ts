@@ -34,6 +34,7 @@ export interface ICreateExamPayload {
   description?: string;
   duration?: number;
   isPublished?: boolean;
+  isMockOnly?: boolean;
   passages?: ICreatePassagePayload[];
 }
 

@@ -38,6 +38,7 @@ const createExam = async (payload: ICreateListeningExamPayload & { creatorEmail?
       description: payload.description,
       duration: payload.duration ?? 40,
       isPublished: payload.isPublished ?? false,
+      isMockOnly: payload.isMockOnly ?? false,
       creatorEmail: payload.creatorEmail,
       sections: {
         create: payload.sections?.map((s) => ({
@@ -103,6 +104,10 @@ const getAllExams = async (role: Role, email?: string) => {
     };
   } else if (isStudent || isTeacher) {
     whereClause = { isPublished: true };
+  }
+
+  if (isStudent) {
+    whereClause.isMockOnly = false;
   }
   
   return await prisma.listeningExam.findMany({

@@ -6,10 +6,12 @@ model SpeakingExam {
   description  String?               @db.Text
   duration     Int                   @default(15) // in minutes
   isPublished  Boolean               @default(false)
+  isMockOnly   Boolean               @default(false)
   creatorEmail String?
 
   parts        SpeakingPart[]
   attempts     UserSpeakingAttempt[]
+  mockTests    MockTest[]
 
   createdAt    DateTime              @default(now())
   updatedAt    DateTime              @updatedAt

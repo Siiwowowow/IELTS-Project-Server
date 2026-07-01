@@ -34,6 +34,7 @@ const createListeningExamZodSchema = z.object({
   description: z.string().optional(),
   duration: z.number().int().min(1).optional(),
   isPublished: z.boolean().optional(),
+  isMockOnly: z.boolean().optional(),
   sections: z.array(createSectionZodSchema).optional(),
 });
 
@@ -42,6 +43,7 @@ const updateListeningExamZodSchema = z.object({
   description: z.string().optional(),
   duration: z.number().int().min(1).optional(),
   isPublished: z.boolean().optional(),
+  isMockOnly: z.boolean().optional(),
   sections: z.array(createSectionZodSchema).optional(),
 });
 

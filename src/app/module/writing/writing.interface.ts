@@ -16,6 +16,7 @@ export interface ICreateWritingExamPayload {
   examType?: WritingExamType;
   duration?: number;
   isPublished?: boolean;
+  isMockOnly?: boolean;
   tasks?: ICreateWritingTaskPayload[];
 }
 

@@ -24,6 +24,7 @@ const createExam = async (
       description: payload.description,
       duration: payload.duration ?? 15,
       isPublished: payload.isPublished ?? false,
+      isMockOnly: payload.isMockOnly ?? false,
       creatorEmail: payload.creatorEmail,
       parts: {
         create: payload.parts?.map((p) => ({
@@ -71,6 +72,10 @@ const getAllExams = async (role: Role, email?: string) => {
     };
   } else if (isStudent || isTeacher) {
     whereClause = { isPublished: true };
+  }
+
+  if (isStudent) {
+    whereClause.isMockOnly = false;
   }
 
   return await prisma.speakingExam.findMany({

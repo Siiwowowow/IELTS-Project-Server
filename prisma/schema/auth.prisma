@@ -24,6 +24,8 @@ model User {
   listeningAttempts  UserListeningAttempt[]
   writingAttempts    UserWritingAttempt[]
   speakingAttempts   UserSpeakingAttempt[]
+  mockAttempts       UserMockAttempt[]
+  isPremium          Boolean  @default(false)
 
   @@map("student")
 }

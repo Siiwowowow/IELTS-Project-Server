@@ -17,6 +17,7 @@ const createWritingExamZodSchema = z.object({
   examType: z.nativeEnum(WritingExamType).optional(),
   duration: z.number().int().min(1).optional(),
   isPublished: z.boolean().optional(),
+  isMockOnly: z.boolean().optional(),
   tasks: z.array(createWritingTaskZodSchema).optional(),
 });
 
@@ -26,6 +27,7 @@ const updateWritingExamZodSchema = z.object({
   examType: z.nativeEnum(WritingExamType).optional(),
   duration: z.number().int().min(1).optional(),
   isPublished: z.boolean().optional(),
+  isMockOnly: z.boolean().optional(),
   tasks: z.array(createWritingTaskZodSchema).optional(),
 });
 

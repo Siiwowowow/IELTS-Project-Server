@@ -33,6 +33,7 @@ export interface ICreateListeningExamPayload {
   description?: string;
   duration?: number;
   isPublished?: boolean;
+  isMockOnly?: boolean;
   sections?: ICreateSectionPayload[];
 }
 

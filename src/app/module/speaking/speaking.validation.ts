@@ -21,6 +21,7 @@ const createSpeakingExamZodSchema = z.object({
   description: z.string().optional().nullable(),
   duration: z.number().int().min(1).optional(),
   isPublished: z.boolean().optional(),
+  isMockOnly: z.boolean().optional(),
   parts: z.array(createSpeakingPartZodSchema).optional(),
 });
 
@@ -29,6 +30,7 @@ const updateSpeakingExamZodSchema = z.object({
   description: z.string().optional().nullable(),
   duration: z.number().int().min(1).optional(),
   isPublished: z.boolean().optional(),
+  isMockOnly: z.boolean().optional(),
   parts: z.array(createSpeakingPartZodSchema).optional(),
 });
 

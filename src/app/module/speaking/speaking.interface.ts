@@ -19,6 +19,7 @@ export interface ICreateSpeakingExamPayload {
   description?: string;
   duration?: number;
   isPublished?: boolean;
+  isMockOnly?: boolean;
   parts?: ICreateSpeakingPartPayload[];
 }
 

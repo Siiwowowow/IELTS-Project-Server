@@ -17,6 +17,7 @@ model WritingExam {
   examType    WritingExamType @default(ACADEMIC)
   duration    Int             @default(60) // in minutes
   isPublished Boolean         @default(false)
+  isMockOnly  Boolean         @default(false)
 
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
@@ -25,6 +26,7 @@ model WritingExam {
 
   tasks       WritingTask[]
   attempts    UserWritingAttempt[]
+  mockTests   MockTest[]
 
   @@map("writing_exams")
 }

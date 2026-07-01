@@ -33,6 +33,7 @@ const createExamZodSchema = z.object({
   description: z.string().optional(),
   duration: z.number().int().min(1).optional(),
   isPublished: z.boolean().optional(),
+  isMockOnly: z.boolean().optional(),
   passages: z.array(createPassageZodSchema).optional(),
 });
 
@@ -41,6 +42,7 @@ const updateExamZodSchema = z.object({
   description: z.string().optional(),
   duration: z.number().int().min(1).optional(),
   isPublished: z.boolean().optional(),
+  isMockOnly: z.boolean().optional(),
 });
 
 const submitAttemptZodSchema = z.object({

@@ -1,0 +1,49 @@
+// prisma/schema/mocktest.prisma
+
+model MockTest {
+  id              String            @id @default(uuid())
+  title           String
+  description     String?           @db.Text
+  isPublished     Boolean           @default(false)
+  isPremium       Boolean           @default(true)
+  creatorEmail    String?
+
+  readingExamId   String?
+  readingExam     Exam?             @relation(fields: [readingExamId], references: [id], onDelete: SetNull)
+
+  listeningExamId String?
+  listeningExam   ListeningExam?    @relation(fields: [listeningExamId], references: [id], onDelete: SetNull)
+
+  writingExamId   String?
+  writingExam     WritingExam?      @relation(fields: [writingExamId], references: [id], onDelete: SetNull)
+
+  speakingExamId  String?
+  speakingExam    SpeakingExam?     @relation(fields: [speakingExamId], references: [id], onDelete: SetNull)
+
+  attempts        UserMockAttempt[]
+
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@map("mock_tests")
+}
+
+model UserMockAttempt {
+  id                  String         @id @default(uuid())
+  userId              String
+  user                User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  mockTestId          String
+  mockTest            MockTest       @relation(fields: [mockTestId], references: [id], onDelete: Cascade)
+
+  readingAttemptId    String?
+  listeningAttemptId  String?
+  writingAttemptId    String?
+  speakingAttemptId   String?
+
+  status              AttemptStatus  @default(IN_PROGRESS)
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  @@map("user_mock_attempts")
+}
