@@ -1,5 +1,10 @@
 //src/app/module/admin/admin.validation.ts
 import z from "zod";
+import { userStatus } from "@prisma/client";
+
+export const changeManagedUserStatusSchema = z.object({
+    status: z.enum(userStatus),
+});
 
 export const updateAdminZodSchema = z.object({
     admin: z.object({

@@ -1,11 +1,11 @@
-//src/app/module/admin/admin.service.ts
+/* eslint-disable @typescript-eslint/no-explicit-any */
 //src/app/module/admin/admin.service.ts
 import status from "http-status";
 import { IRequestUser } from "../../interfaces/requestUser.interface.js";
 import { prisma } from "../../lib/prisma.js";
 import { IUpdateAdminPayload, IChangeUserRolePayload, IChangeUserStatusPayload } from "./admin.interface.js";
 import AppError from "../../errorHelpers/AppError.js";
-import { userStatus } from "@prisma/client";
+import { Role, userStatus } from "@prisma/client";
 
 const getAllAdmins = async () => {
     const admins = await prisma.admin.findMany({
@@ -164,9 +164,89 @@ const changeUserRole = async (payload: IChangeUserRolePayload, currentUser: IReq
             role: role
         }
     });
+
+    if (role === Role.TEACHER) {
+        await prisma.teacher.upsert({
+            where: { userId: user.id },
+            update: {
+                isDeleted: false,
+                deletedAt: null,
+            },
+            create: {
+                userId: user.id,
+                email: user.email,
+                name: user.name || "Teacher",
+                profilePhoto: user.image,
+            },
+        });
+    } else if (role === Role.ADMIN || role === Role.SUPER_ADMIN) {
+        await prisma.admin.upsert({
+            where: { userId: user.id },
+            update: {
+                isDeleted: false,
+                deletedAt: null,
+            },
+            create: {
+                userId: user.id,
+                email: user.email,
+                name: user.name || "Admin",
+                profilePhoto: user.image,
+            },
+        });
+    }
     
     return updatedUser;
 }
+
+const getManagementOverview = async () => {
+    const roles = { in: [Role.STUDENT, Role.TEACHER] };
+    const [total, students, teachers, active, pending, blocked, deleted] = await prisma.$transaction([
+        prisma.user.count({ where: { role: roles, isDeleted: false } }),
+        prisma.user.count({ where: { role: Role.STUDENT, isDeleted: false } }),
+        prisma.user.count({ where: { role: Role.TEACHER, isDeleted: false } }),
+        prisma.user.count({ where: { role: roles, status: userStatus.ACTIVE, isDeleted: false } }),
+        prisma.user.count({ where: { role: roles, status: userStatus.PENDING_VERIFICATION, isDeleted: false } }),
+        prisma.user.count({ where: { role: roles, status: userStatus.BLOCKED, isDeleted: false } }),
+        prisma.user.count({ where: { role: roles, OR: [{ isDeleted: true }, { status: userStatus.DELETED }] } }),
+    ]);
+    return { total, students, teachers, active, pending, blocked, deleted };
+};
+
+const getManagedUsers = async (query: { search?: string; role?: Role; status?: userStatus; includeDeleted?: boolean }) => prisma.user.findMany({
+    where: {
+        role: query.role ? query.role : { in: [Role.STUDENT, Role.TEACHER] },
+        ...(query.status ? { status: query.status } : {}),
+        ...(!query.includeDeleted ? { isDeleted: false } : {}),
+        ...(query.search ? { OR: [{ name: { contains: query.search, mode: "insensitive" } }, { email: { contains: query.search, mode: "insensitive" } }] } : {}),
+    },
+    select: { id: true, name: true, email: true, image: true, role: true, status: true, emailVerified: true, isPremium: true, isDeleted: true, createdAt: true, updatedAt: true },
+    orderBy: { createdAt: "desc" },
+});
+
+const updateManagedUserStatus = async (userId: string, accountStatus: userStatus, currentUser: IRequestUser) => {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new AppError(status.NOT_FOUND, "User not found");
+    if (user.id === currentUser.userId) throw new AppError(status.BAD_REQUEST, "You cannot change your own status");
+    if (user.role === Role.SUPER_ADMIN) throw new AppError(status.FORBIDDEN, "Super admin status cannot be changed");
+    return prisma.$transaction(async (tx: any) => {
+        const updated = await tx.user.update({ where: { id: userId }, data: { status: accountStatus, isDeleted: accountStatus === userStatus.DELETED, deletedAt: accountStatus === userStatus.DELETED ? new Date() : null } });
+        if (accountStatus === userStatus.BLOCKED || accountStatus === userStatus.DELETED) await tx.session.deleteMany({ where: { userId } });
+        return updated;
+    });
+};
+
+const deleteManagedUser = async (userId: string, currentUser: IRequestUser) => {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new AppError(status.NOT_FOUND, "User not found");
+    if (user.id === currentUser.userId) throw new AppError(status.BAD_REQUEST, "You cannot delete your own account");
+    if (user.role === Role.SUPER_ADMIN) throw new AppError(status.FORBIDDEN, "Super admin cannot be deleted");
+    return prisma.$transaction(async (tx: any) => {
+        await tx.session.deleteMany({ where: { userId } });
+        await tx.account.deleteMany({ where: { userId } });
+        if (user.role === Role.TEACHER) await tx.teacher.updateMany({ where: { userId }, data: { isDeleted: true, deletedAt: new Date() } });
+        return tx.user.update({ where: { id: userId }, data: { status: userStatus.DELETED, isDeleted: true, deletedAt: new Date() } });
+    });
+};
 
 export const AdminService = {
     getAllAdmins,
@@ -174,5 +254,9 @@ export const AdminService = {
     updateAdmin,
     deleteAdmin,
     changeUserRole,
-    changeUserStatus
+    changeUserStatus,
+    getManagementOverview,
+    getManagedUsers,
+    updateManagedUserStatus,
+    deleteManagedUser
 }

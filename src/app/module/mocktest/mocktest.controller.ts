@@ -120,7 +120,7 @@ const createAttempt = catchAsync(async (req: Request, res: Response) => {
   const user = req.user as any;
   const { id: mockTestId } = req.params as any;
 
-  const result = await MockTestService.createAttempt(mockTestId, user.id);
+  const result = await MockTestService.createAttempt(mockTestId, user.userId);
 
   sendResponse(res, {
     success: true,
@@ -134,7 +134,7 @@ const getAttemptById = catchAsync(async (req: Request, res: Response) => {
   const user = req.user as any;
   const { attemptId } = req.params as any;
 
-  const result = await MockTestService.getAttemptById(attemptId, user.id, user.role);
+  const result = await MockTestService.getAttemptById(attemptId, user.userId, user.role);
 
   sendResponse(res, {
     success: true,
@@ -148,12 +148,24 @@ const updateAttempt = catchAsync(async (req: Request, res: Response) => {
   const user = req.user as any;
   const { attemptId } = req.params as any;
 
-  const result = await MockTestService.updateAttempt(attemptId, user.id, req.body);
+  const result = await MockTestService.updateAttempt(attemptId, user.userId, req.body);
 
   sendResponse(res, {
     success: true,
     httpCode: status.OK,
     message: "Mock test attempt updated successfully",
+    data: result,
+  });
+});
+
+const getStudentDashboard = catchAsync(async (req: Request, res: Response) => {
+  const user = req.user as any;
+  const result = await MockTestService.getStudentDashboard(user.userId);
+
+  sendResponse(res, {
+    success: true,
+    httpCode: status.OK,
+    message: "Student dashboard fetched successfully",
     data: result,
   });
 });
@@ -168,4 +180,5 @@ export const MockTestController = {
   createAttempt,
   getAttemptById,
   updateAttempt,
+  getStudentDashboard,
 };

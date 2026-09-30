@@ -64,13 +64,13 @@ export const checkAuth =
       if (!isMeRoute && !user.emailVerified) {
         throw new AppError(status.FORBIDDEN, "Email verification required.");
       }
-
       if (authRoles.length > 0 && !authRoles.includes(user.role)) {
         throw new AppError(status.FORBIDDEN, "Forbidden access");
       }
 
       // ✅ IRequestUser এর সব fields
       req.user = {
+        name: user.name || "",
         userId: user.userId || user.id,
         role: user.role,
         email: user.email,
@@ -85,3 +85,57 @@ export const checkAuth =
       next(error);
     }
   };
+
+export const optionalAuth = async (req: Request, _res: Response, next: NextFunction) => {
+  try {
+    const sessionToken =
+      CookieUtils.getCookie(req, "__Secure-better-auth.session_token") ||
+      CookieUtils.getCookie(req, "better-auth.session_token");
+    const accessToken = CookieUtils.getCookie(req, "accessToken");
+
+    let user: any = null;
+
+    if (sessionToken) {
+      try {
+        const session = await auth.api.getSession({
+          headers: {
+            Cookie: req.headers.cookie || "",
+          },
+        });
+        if (session?.user) {
+          user = session.user;
+        }
+      } catch {
+        user = null;
+      }
+    }
+
+    if (!user && accessToken) {
+      const verified = jwtUtils.verifyToken(accessToken, envVars.ACCESS_TOKEN_SECRET);
+      if (verified.success) {
+        user = verified.data;
+      }
+    }
+
+    if (
+      user &&
+      !user.isDeleted &&
+      user.status !== userStatus.BLOCKED &&
+      user.status !== userStatus.DELETED
+    ) {
+      req.user = {
+        name: user.name || "",
+        userId: user.userId || user.id,
+        role: user.role,
+        email: user.email,
+        isDeleted: user.isDeleted ?? false,
+        emailVerified: user.emailVerified ?? false,
+        status: user.status,
+        image: user.image ?? null,
+      };
+    }
+  } catch {
+    // ignore optional auth errors
+  }
+  next();
+};

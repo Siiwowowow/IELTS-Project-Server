@@ -64,10 +64,10 @@ router.post(
 
 // --- ATTEMPTS & GRADING ---
 
-// 8. Grade a Student's Writing Attempt (Admin/Teacher only)
+// 8. Grade a Student's Writing Attempt (Admin/Teacher/Student AI)
 router.post(
   "/attempts/:attemptId/grade",
-  checkAuth(Role.SUPER_ADMIN, Role.ADMIN, Role.TEACHER),
+  checkAuth(Role.SUPER_ADMIN, Role.ADMIN, Role.TEACHER, Role.STUDENT),
   validateRequest(WritingValidation.gradeWritingAttemptZodSchema),
   WritingController.gradeAttempt
 );

@@ -31,6 +31,13 @@ router.get(
   MockTestController.getAllMockTests
 );
 
+// Student dashboard summary must be declared before the dynamic /:id route.
+router.get(
+  "/student/dashboard",
+  checkAuth(Role.STUDENT),
+  MockTestController.getStudentDashboard
+);
+
 // 3. Get Single Mock Test Details (All roles)
 router.get(
   "/:id",

@@ -99,11 +99,23 @@ const changeUserRole = catchAsync(
     }
 );
 
+const getManagementOverview = catchAsync(async (_req: Request, res: Response) => sendResponse(res, { httpCode: status.OK, success: true, message: "Management overview fetched", data: await AdminService.getManagementOverview() }));
+const getManagedUsers = catchAsync(async (req: Request, res: Response) => {
+    const result = await AdminService.getManagedUsers({ search: req.query.search as string | undefined, role: req.query.role as any, status: req.query.status as any, includeDeleted: req.query.includeDeleted === "true" });
+    sendResponse(res, { httpCode: status.OK, success: true, message: "Users fetched", data: result });
+});
+const updateManagedUserStatus = catchAsync(async (req: Request, res: Response) => sendResponse(res, { httpCode: status.OK, success: true, message: "Account status updated", data: await AdminService.updateManagedUserStatus(req.params.id as string, req.body.status, req.user as IRequestUser) }));
+const deleteManagedUser = catchAsync(async (req: Request, res: Response) => sendResponse(res, { httpCode: status.OK, success: true, message: "Account deleted", data: await AdminService.deleteManagedUser(req.params.id as string, req.user as IRequestUser) }));
+
 export const AdminController = {
     getAllAdmins,
     updateAdmin,
     deleteAdmin,
     getAdminById,
     changeUserStatus,
-    changeUserRole
+    changeUserRole,
+    getManagementOverview,
+    getManagedUsers,
+    updateManagedUserStatus,
+    deleteManagedUser
 };

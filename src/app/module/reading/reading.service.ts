@@ -316,26 +316,19 @@ const submitExamAttempt = async (
         let isCorrect = false;
 
         if (correctAnswer && submittedAnswer !== undefined && submittedAnswer !== null && submittedAnswer.trim() !== "") {
-          const cleanSub = submittedAnswer.trim().toLowerCase();
-          const cleanCor = correctAnswer.trim().toLowerCase();
+          const normalize = (value: string) => value.trim().toLowerCase().replace(/\s+/g, " ");
+          const aliases: Record<string, string> = {
+            t: "true", f: "false", ng: "not given", y: "yes", n: "no",
+          };
+          const cleanSub = normalize(submittedAnswer);
+          const canonicalSub = aliases[cleanSub] ?? cleanSub;
+          const acceptedAnswers = correctAnswer
+            .split("/")
+            .map(normalize)
+            .filter(Boolean)
+            .map((answer) => aliases[answer] ?? answer);
 
-          // Flexible matching for True/False/Not Given and Yes/No/Not Given abbreviations
-          if (
-            (cleanSub === "t" && cleanCor === "true") ||
-            (cleanSub === "true" && cleanCor === "true") ||
-            (cleanSub === "f" && cleanCor === "false") ||
-            (cleanSub === "false" && cleanCor === "false") ||
-            (cleanSub === "ng" && cleanCor === "not given") ||
-            (cleanSub === "not given" && cleanCor === "not given") ||
-            (cleanSub === "y" && cleanCor === "yes") ||
-            (cleanSub === "yes" && cleanCor === "yes") ||
-            (cleanSub === "n" && cleanCor === "no") ||
-            (cleanSub === "no" && cleanCor === "no")
-          ) {
-            isCorrect = true;
-          } else if (cleanSub === cleanCor) {
-            isCorrect = true;
-          }
+          isCorrect = acceptedAnswers.includes(canonicalSub);
         }
 
         if (isCorrect) {

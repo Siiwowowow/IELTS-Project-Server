@@ -17,6 +17,7 @@ model User {
   updatedAt          DateTime @updatedAt
 
   admin              Admin?   // 👈 relation (optional)
+  teacher            Teacher? // 👈 relation (optional)
 
   sessions           Session[]
   accounts           Account[]
@@ -25,6 +26,8 @@ model User {
   writingAttempts    UserWritingAttempt[]
   speakingAttempts   UserSpeakingAttempt[]
   mockAttempts       UserMockAttempt[]
+  vocabularyWords    VocabularyWord[]
+  vocabularyBookmarks VocabularyBookmark[]
   isPremium          Boolean  @default(false)
 
   @@map("student")

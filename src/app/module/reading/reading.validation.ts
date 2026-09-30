@@ -22,6 +22,8 @@ const createQuestionGroupZodSchema = z.object({
 const createPassageZodSchema = z.object({
   title: z.string().min(1, "Passage title is required"),
   text: z.string().optional(),
+  body: z.string().optional(),
+  instruction: z.string().optional(),
   pdfUrl: z.string().optional(),
   imageUrl: z.string().optional(),
   order: z.number().int().min(1).max(3),
@@ -43,6 +45,7 @@ const updateExamZodSchema = z.object({
   duration: z.number().int().min(1).optional(),
   isPublished: z.boolean().optional(),
   isMockOnly: z.boolean().optional(),
+  passages: z.array(createPassageZodSchema).optional(),
 });
 
 const submitAttemptZodSchema = z.object({

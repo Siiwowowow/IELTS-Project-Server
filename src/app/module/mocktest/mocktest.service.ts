@@ -387,6 +387,126 @@ const updateAttempt = async (attemptId: string, userId: string, payload: IUpdate
   return updatedAttempt;
 };
 
+const getStudentDashboard = async (userId: string) => {
+  const [mockAttempts, readingAttempts, listeningAttempts, writingAttempts, speakingAttempts] = await Promise.all([
+    prisma.userMockAttempt.findMany({
+      where: { userId },
+      include: {
+        mockTest: {
+          select: {
+            id: true,
+            title: true,
+            readingExamId: true,
+            listeningExamId: true,
+            writingExamId: true,
+            speakingExamId: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.userExamAttempt.findMany({
+      where: { userId },
+      include: { exam: { select: { id: true, title: true } } },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.userListeningAttempt.findMany({
+      where: { userId },
+      include: { exam: { select: { id: true, title: true } } },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.userWritingAttempt.findMany({
+      where: { userId },
+      include: { exam: { select: { id: true, title: true } } },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.userSpeakingAttempt.findMany({
+      where: { userId },
+      include: { exam: { select: { id: true, title: true } } },
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
+
+  const moduleAttempts = {
+    reading: readingAttempts,
+    listening: listeningAttempts,
+    writing: writingAttempts,
+    speaking: speakingAttempts,
+  };
+
+  const moduleStats = Object.entries(moduleAttempts).map(([module, attempts]) => {
+    const scored = attempts.filter((attempt) => attempt.bandScore != null);
+    const average = scored.length
+      ? roundToHalf(scored.reduce((sum, attempt) => sum + (attempt.bandScore ?? 0), 0) / scored.length)
+      : null;
+    const latest = scored[0]?.bandScore ?? null;
+    const previous = scored[1]?.bandScore ?? null;
+
+    return {
+      module,
+      totalAttempts: attempts.length,
+      completedAttempts: attempts.filter((attempt) => attempt.status === AttemptStatus.SUBMITTED).length,
+      averageBandScore: average,
+      latestBandScore: latest,
+      change: latest != null && previous != null ? latest - previous : null,
+    };
+  });
+
+  const readingById = new Map(readingAttempts.map((attempt) => [attempt.id, attempt]));
+  const listeningById = new Map(listeningAttempts.map((attempt) => [attempt.id, attempt]));
+  const writingById = new Map(writingAttempts.map((attempt) => [attempt.id, attempt]));
+  const speakingById = new Map(speakingAttempts.map((attempt) => [attempt.id, attempt]));
+
+  const mockHistory = mockAttempts.map((attempt) => {
+    const sectionScores = {
+      reading: attempt.readingAttemptId ? readingById.get(attempt.readingAttemptId)?.bandScore ?? null : null,
+      listening: attempt.listeningAttemptId ? listeningById.get(attempt.listeningAttemptId)?.bandScore ?? null : null,
+      writing: attempt.writingAttemptId ? writingById.get(attempt.writingAttemptId)?.bandScore ?? null : null,
+      speaking: attempt.speakingAttemptId ? speakingById.get(attempt.speakingAttemptId)?.bandScore ?? null : null,
+    };
+    const scores = Object.values(sectionScores).filter((score): score is number => score != null);
+    const expectedSections = [
+      attempt.mockTest.readingExamId,
+      attempt.mockTest.listeningExamId,
+      attempt.mockTest.writingExamId,
+      attempt.mockTest.speakingExamId,
+    ].filter(Boolean).length;
+    const overallBandScore = attempt.status === AttemptStatus.SUBMITTED && expectedSections > 0 && scores.length === expectedSections
+      ? roundToHalf(scores.reduce((sum, score) => sum + score, 0) / scores.length)
+      : null;
+
+    return {
+      id: attempt.id,
+      mockTestId: attempt.mockTestId,
+      title: attempt.mockTest.title,
+      status: attempt.status,
+      startedAt: attempt.createdAt,
+      completedAt: attempt.status === AttemptStatus.SUBMITTED ? attempt.updatedAt : null,
+      overallBandScore,
+      sectionScores,
+      gradedSections: scores.length,
+      expectedSections,
+    };
+  });
+
+  const latestScores = moduleStats
+    .map((stat) => stat.latestBandScore)
+    .filter((score): score is number => score != null);
+
+  return {
+    overview: {
+      mockTestsStarted: mockAttempts.length,
+      mockTestsCompleted: mockAttempts.filter((attempt) => attempt.status === AttemptStatus.SUBMITTED).length,
+      practiceAttempts: readingAttempts.length + listeningAttempts.length + writingAttempts.length + speakingAttempts.length,
+      overallBandScore: latestScores.length
+        ? roundToHalf(latestScores.reduce((sum, score) => sum + score, 0) / latestScores.length)
+        : null,
+    },
+    moduleStats,
+    mockHistory,
+  };
+};
+
 export const MockTestService = {
   createMockTest,
   createFullMockTest,
@@ -397,4 +517,5 @@ export const MockTestService = {
   createAttempt,
   getAttemptById,
   updateAttempt,
+  getStudentDashboard,
 };

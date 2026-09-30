@@ -147,6 +147,8 @@ const getMe = async (userId: string) => {
       emailVerified: true, // ✅ ADDED
       needPasswordChange: true, // ✅ ADDED
       isDeleted: true,
+      admin: true,
+      teacher: true,
     },
   });
 

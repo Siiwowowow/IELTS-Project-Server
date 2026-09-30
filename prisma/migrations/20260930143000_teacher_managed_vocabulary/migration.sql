@@ -1,0 +1,10 @@
+ALTER TABLE "user_vocabulary" DROP CONSTRAINT "user_vocabulary_userId_fkey";
+DROP INDEX "user_vocabulary_userId_word_key";
+DROP INDEX "user_vocabulary_userId_idx";
+ALTER TABLE "user_vocabulary" RENAME TO "vocabulary_words";
+ALTER TABLE "vocabulary_words" RENAME COLUMN "userId" TO "creatorId";
+ALTER TABLE "vocabulary_words" ALTER COLUMN "creatorId" DROP NOT NULL;
+CREATE UNIQUE INDEX "vocabulary_words_word_key" ON "vocabulary_words"("word");
+CREATE INDEX "vocabulary_words_creatorId_idx" ON "vocabulary_words"("creatorId");
+ALTER TABLE "vocabulary_words" ADD CONSTRAINT "vocabulary_words_creatorId_fkey" FOREIGN KEY ("creatorId") REFERENCES "student"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "vocabulary_bookmarks" ADD COLUMN "word" TEXT NOT NULL DEFAULT '', ADD COLUMN "meaning" TEXT NOT NULL DEFAULT '';

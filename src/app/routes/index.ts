@@ -6,15 +6,21 @@ import { ListeningRoutes } from "../module/listening/listening.route.js";
 import { WritingRoutes } from "../module/writing/writing.route.js";
 import { SpeakingRoutes } from "../module/speaking/speaking.route.js";
 import { MockTestRoutes } from "../module/mocktest/mocktest.route.js";
+import { TeacherRoutes } from "../module/teacher/teacher.route.js";
+import { VocabularyRoutes } from "../module/vocabulary/vocabulary.route.js";
+import { AdminRoutes } from "../module/admin/admin.route.js";
 
 const router=Router();
 
  router.use("/auth", AuthRouters);
  router.use("/users", UserRoutes); 
+ router.use("/teachers", TeacherRoutes);
  router.use("/reading", ReadingRoutes);
  router.use("/listening", ListeningRoutes);
  router.use("/writing", WritingRoutes);
  router.use("/speaking", SpeakingRoutes);
  router.use("/mock-tests", MockTestRoutes);
+ router.use("/vocabulary", VocabularyRoutes);
+ router.use("/admin", AdminRoutes);
 
 export const IndexRoutes=router;

@@ -71,14 +71,14 @@ export const globalErrorHandler = async (err: any, req: Request, res: Response, 
         errorSources = [...simplifiedError.errorSources]
         stack = err.stack;
 
-    } else if (err instanceof AppError) {
+    } else if (err instanceof AppError || (err && typeof err === 'object' && typeof err.statusCode === 'number')) {
         statusCode = err.statusCode;
-        message = err.message;
+        message = err.message || message;
         stack = err.stack;
         errorSources = [
             {
                 path: '',
-                message: err.message
+                message: err.message || message
             }
         ]
     }

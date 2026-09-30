@@ -1,0 +1,40 @@
+model VocabularyWord {
+  id             String   @id @default(uuid())
+  creatorId      String?
+  word           String
+  bangla         String
+  pronunciation  String?
+  partOfSpeech   String
+  definition     String
+  example        String
+  exampleBangla  String?
+  collocations   String[] @default([])
+  topic          String   @default("Custom")
+  level          String   @default("Intermediate")
+  simpleExample  String?
+  compoundExample String?
+  complexExample String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  creator User? @relation(fields: [creatorId], references: [id], onDelete: SetNull)
+
+  @@unique([word])
+  @@index([creatorId])
+  @@map("vocabulary_words")
+}
+
+model VocabularyBookmark {
+  id        String   @id @default(uuid())
+  userId    String
+  wordId    String
+  word      String
+  meaning   String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, wordId])
+  @@index([userId])
+  @@map("vocabulary_bookmarks")
+}

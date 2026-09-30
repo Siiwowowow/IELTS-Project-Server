@@ -64,10 +64,10 @@ router.post(
 
 // --- ATTEMPTS & GRADING ---
 
-// 8. Grade a Student's Speaking Attempt (Admin/Teacher only)
+// 8. Grade a Student's Speaking Attempt (Admin/Teacher/Student AI)
 router.post(
   "/attempts/:attemptId/grade",
-  checkAuth(Role.SUPER_ADMIN, Role.ADMIN, Role.TEACHER),
+  checkAuth(Role.SUPER_ADMIN, Role.ADMIN, Role.TEACHER, Role.STUDENT),
   validateRequest(SpeakingValidation.gradeSpeakingAttemptZodSchema),
   SpeakingController.gradeAttempt
 );
