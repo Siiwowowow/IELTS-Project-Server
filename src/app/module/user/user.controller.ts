@@ -53,7 +53,20 @@ const removeProfilePhoto = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const upgradeToPremium = catchAsync(async (req: Request, res: Response) => {
+  const user = req.user as IRequestUser;
+  const result = await UserService.upgradeToPremium(user.userId);
+
+  sendResponse(res, {
+    success: true,
+    httpCode: status.OK,
+    message: "Premium access unlocked successfully!",
+    data: result,
+  });
+});
+
 export const UserController = {
   updateMyProfile,
   removeProfilePhoto,
+  upgradeToPremium,
 };

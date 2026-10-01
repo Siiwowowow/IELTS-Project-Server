@@ -11,9 +11,8 @@ import { TErrorResponse, TErrorSources } from "../interfaces/error.interface.js"
 
 
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const globalErrorHandler = async (err: any, req: Request, res: Response, next: NextFunction) => {
-    console.error("Error from Global Error Handler:", err);
+    console.error(`Error from Global Error Handler [${req.method} ${req.originalUrl}]:`, err);
 
     // Safely attempt file cleanup only if a path exists (e.g. for disk storage)
     try {

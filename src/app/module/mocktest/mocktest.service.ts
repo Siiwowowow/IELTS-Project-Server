@@ -1,3 +1,5 @@
+/* eslint-disable prefer-const */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // src/app/module/mocktest/mocktest.service.ts
 import status from "http-status";
 import AppError from "../../errorHelpers/AppError.js";
@@ -19,6 +21,7 @@ const createMockTest = async (payload: ICreateMockTestPayload & { creatorEmail?:
       title: payload.title,
       description: payload.description,
       isPublished: payload.isPublished ?? false,
+      isPremium: payload.isPremium ?? false,
       creatorEmail: payload.creatorEmail,
       readingExamId: payload.readingExamId,
       listeningExamId: payload.listeningExamId,
@@ -86,7 +89,7 @@ const createFullMockTest = async (payload: any & { creatorEmail?: string }) => {
       title: payload.title,
       description: payload.description,
       isPublished: payload.isPublished ?? false,
-      isPremium: payload.isPremium ?? true,
+      isPremium: payload.isPremium !== undefined ? Boolean(payload.isPremium) : false,
       creatorEmail: payload.creatorEmail,
       readingExamId,
       listeningExamId,
@@ -120,6 +123,9 @@ const getAllMockTests = async (role: Role, email?: string) => {
     where: whereClause,
     orderBy: { createdAt: "desc" },
     include: {
+      _count: {
+        select: { attempts: true },
+      },
       readingExam: {
         select: { id: true, title: true, duration: true },
       },
@@ -391,7 +397,16 @@ const getStudentDashboard = async (userId: string) => {
   const [mockAttempts, readingAttempts, listeningAttempts, writingAttempts, speakingAttempts] = await Promise.all([
     prisma.userMockAttempt.findMany({
       where: { userId },
-      include: {
+      select: {
+        id: true,
+        mockTestId: true,
+        status: true,
+        readingAttemptId: true,
+        listeningAttemptId: true,
+        writingAttemptId: true,
+        speakingAttemptId: true,
+        createdAt: true,
+        updatedAt: true,
         mockTest: {
           select: {
             id: true,
@@ -407,22 +422,22 @@ const getStudentDashboard = async (userId: string) => {
     }),
     prisma.userExamAttempt.findMany({
       where: { userId },
-      include: { exam: { select: { id: true, title: true } } },
+      select: { id: true, status: true, bandScore: true, createdAt: true },
       orderBy: { createdAt: "desc" },
     }),
     prisma.userListeningAttempt.findMany({
       where: { userId },
-      include: { exam: { select: { id: true, title: true } } },
+      select: { id: true, status: true, bandScore: true, createdAt: true },
       orderBy: { createdAt: "desc" },
     }),
     prisma.userWritingAttempt.findMany({
       where: { userId },
-      include: { exam: { select: { id: true, title: true } } },
+      select: { id: true, status: true, bandScore: true, createdAt: true },
       orderBy: { createdAt: "desc" },
     }),
     prisma.userSpeakingAttempt.findMany({
       where: { userId },
-      include: { exam: { select: { id: true, title: true } } },
+      select: { id: true, status: true, bandScore: true, createdAt: true },
       orderBy: { createdAt: "desc" },
     }),
   ]);

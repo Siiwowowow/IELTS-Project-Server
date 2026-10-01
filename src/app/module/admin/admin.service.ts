@@ -200,7 +200,7 @@ const changeUserRole = async (payload: IChangeUserRolePayload, currentUser: IReq
 
 const getManagementOverview = async () => {
     const roles = { in: [Role.STUDENT, Role.TEACHER] };
-    const [total, students, teachers, active, pending, blocked, deleted] = await prisma.$transaction([
+    const [total, students, teachers, active, pending, blocked, deleted, reading, listening, writing, speaking, mockTests, vocabulary] = await Promise.all([
         prisma.user.count({ where: { role: roles, isDeleted: false } }),
         prisma.user.count({ where: { role: Role.STUDENT, isDeleted: false } }),
         prisma.user.count({ where: { role: Role.TEACHER, isDeleted: false } }),
@@ -208,11 +208,26 @@ const getManagementOverview = async () => {
         prisma.user.count({ where: { role: roles, status: userStatus.PENDING_VERIFICATION, isDeleted: false } }),
         prisma.user.count({ where: { role: roles, status: userStatus.BLOCKED, isDeleted: false } }),
         prisma.user.count({ where: { role: roles, OR: [{ isDeleted: true }, { status: userStatus.DELETED }] } }),
+        prisma.exam.count(),
+        prisma.listeningExam.count(),
+        prisma.writingExam.count(),
+        prisma.speakingExam.count(),
+        prisma.mockTest.count(),
+        prisma.vocabularyWord.count(),
     ]);
-    return { total, students, teachers, active, pending, blocked, deleted };
+    return {
+        total,
+        students,
+        teachers,
+        active,
+        pending,
+        blocked,
+        deleted,
+        contentCounts: { reading, listening, writing, speaking, mockTests, vocabulary },
+    };
 };
 
-const getManagedUsers = async (query: { search?: string; role?: Role; status?: userStatus; includeDeleted?: boolean }) => prisma.user.findMany({
+const getManagedUsers = async (query: { search?: string; role?: Role; status?: userStatus; includeDeleted?: boolean; limit?: number }) => prisma.user.findMany({
     where: {
         role: query.role ? query.role : { in: [Role.STUDENT, Role.TEACHER] },
         ...(query.status ? { status: query.status } : {}),
@@ -221,6 +236,7 @@ const getManagedUsers = async (query: { search?: string; role?: Role; status?: u
     },
     select: { id: true, name: true, email: true, image: true, role: true, status: true, emailVerified: true, isPremium: true, isDeleted: true, createdAt: true, updatedAt: true },
     orderBy: { createdAt: "desc" },
+    ...(query.limit ? { take: Math.min(Math.max(query.limit, 1), 100) } : {}),
 });
 
 const updateManagedUserStatus = async (userId: string, accountStatus: userStatus, currentUser: IRequestUser) => {

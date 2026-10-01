@@ -29,6 +29,15 @@ export const seedSuperAdmin = async () => {
     });
 
     if (exists) {
+      // Ensure super admin user record has SUPER_ADMIN role and ACTIVE status
+      await prisma.user.updateMany({
+        where: { email: envVars.SUPER_ADMIN_EMAIL },
+        data: {
+          role: Role.SUPER_ADMIN,
+          status: "ACTIVE",
+          emailVerified: true,
+        },
+      });
       console.log("Super admin already exists. Skipping...");
       return;
     }
@@ -39,9 +48,7 @@ export const seedSuperAdmin = async () => {
         email: envVars.SUPER_ADMIN_EMAIL,
         password: envVars.SUPER_ADMIN_PASSWORD,
         name: "Super Admin",
-        
         role: Role.SUPER_ADMIN,
-        
         needPasswordChange: false,
       },
     });
@@ -59,6 +66,7 @@ export const seedSuperAdmin = async () => {
         data: {
           emailVerified: true,
           status: "ACTIVE",
+          role: Role.SUPER_ADMIN,
         },
       });
 
@@ -67,7 +75,6 @@ export const seedSuperAdmin = async () => {
           name: "Super Admin",
           email: envVars.SUPER_ADMIN_EMAIL,
           userId: superAdminUser.user.id,
-         
         },
       });
 

@@ -46,6 +46,7 @@ export const auth = betterAuth({
         clientId: envVars.GOOGLE_CLIENT_ID,
         clientSecret: envVars.GOOGLE_CLIENT_SECRET,
         callbackURL: envVars.GOOGLE_CALLBACK_URL,
+        prompt: "select_account",
         mapProfileToUser: ()=>{
             return {
                 role : Role.STUDENT,
@@ -146,6 +147,12 @@ export const auth = betterAuth({
     })
 ],
 
+  account: {
+    accountLinking: {
+      enabled: true,
+      trustedProviders: ["google"],
+    },
+  },
    session: {
      expiresIn: durationToSeconds(envVars.BETTER_AUTH_SESSION_TOKEN_EXPIRES_IN),
      updateAge: durationToSeconds(envVars.BETTER_AUTH_SESSION_TOKEN_UPDATE_AGE),
@@ -157,7 +164,29 @@ export const auth = betterAuth({
   redirectURLs:{
     signIn : envVars.BETTER_AUTH_URL.replace("/api/auth", "/api/v1/auth/google/success"),
 },
-trustedOrigins: [envVars.BETTER_AUTH_URL, envVars.FRONTEND_URL],
+  onAPIError: {
+    errorURL: `${envVars.FRONTEND_URL}/login`,
+  },
+  trustedOrigins: [
+    (() => {
+      try {
+        return new URL(envVars.BETTER_AUTH_URL).origin;
+      } catch {
+        return envVars.BETTER_AUTH_URL;
+      }
+    })(),
+    (() => {
+      try {
+        return new URL(envVars.FRONTEND_URL).origin;
+      } catch {
+        return envVars.FRONTEND_URL;
+      }
+    })(),
+    "https://ielts-project-server.vercel.app",
+    "https://ielts-project-client.vercel.app",
+    "http://localhost:3000",
+    "http://localhost:5000",
+  ],
 
   advanced: {
       // disableCSRFCheck: true,
@@ -171,7 +200,7 @@ trustedOrigins: [envVars.BETTER_AUTH_URL, envVars.FRONTEND_URL],
                   path: "/",
               }
           },
-          sessionToken:{
+          session_token:{
               attributes:{
                   sameSite: envVars.NODE_ENV === "production" ? "none" : "lax",
                   secure: envVars.NODE_ENV === "production",

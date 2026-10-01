@@ -9,6 +9,9 @@ import status from "http-status";
 import AppError from "../../errorHelpers/AppError.js";
 import { envVars } from "../../config/env.js";
 import { auth } from "../../lib/auth.js";
+import { fromNodeHeaders } from "better-auth/node";
+import { redisClient } from "../../config/redis.js";
+import { prisma } from "../../lib/prisma.js";
 import { uploadFileToCloudinary } from "../../config/cloudinary.config.js";
 
 const registerUser = catchAsync(async (req: Request, res: Response) => {
@@ -202,9 +205,8 @@ const resetPassword = catchAsync(
       });
   }
 )
-const googleLogin = catchAsync((req: Request, res: Response) => {
-  const redirectPath = (req.query.redirect as string) || "/dashboard";
-
+const googleLogin = catchAsync(async (req: Request, res: Response) => {
+  const redirectPath = (req.query.redirect as string) || "/";
   const encodedRedirectPath = encodeURIComponent(redirectPath);
 
   const baseCallbackURL = envVars.BETTER_AUTH_URL.replace(
@@ -212,89 +214,119 @@ const googleLogin = catchAsync((req: Request, res: Response) => {
     "/api/v1/auth/google/success"
   );
   const callbackURL = `${baseCallbackURL}?redirect=${encodedRedirectPath}`;
+  const errorCallbackURL = `${envVars.FRONTEND_URL}/login?error=social_login_failed`;
 
-  const html = `
-    <html>
-      <body style="font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; background-color: #f9fafb; color: #374151;">
-        <div style="text-align: center;">
-          <svg style="animation: spin 1s linear infinite; width: 40px; height: 40px; color: #2563eb; margin: 0 auto 16px auto;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle style="opacity: 0.25;" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path style="opacity: 0.75;" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
-          <p style="font-size: 16px; font-weight: 500;">Redirecting to Google...</p>
-        </div>
+  try {
+    const authResponse = await auth.api.signInSocial({
+      body: {
+        provider: "google",
+        callbackURL,
+        errorCallbackURL,
+      },
+      asResponse: true,
+    });
 
-        <script>
-          function log(msg) {
-            console.log(msg);
-          }
-          
-          log("Starting Google Auth flow...");
-          log("POST ${envVars.BETTER_AUTH_URL}/sign-in/social");
-          log("Callback: ${callbackURL}");
+    const rawSetCookie = typeof (authResponse.headers as any).getSetCookie === "function"
+      ? (authResponse.headers as any).getSetCookie()
+      : [authResponse.headers.get("set-cookie")].filter(Boolean);
 
-          fetch("${envVars.BETTER_AUTH_URL}/sign-in/social", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json"
-            },
-            credentials: "include",
-            body: JSON.stringify({
-              provider: "google",
-              callbackURL: "${callbackURL}"
-            })
-          })
-          .then(res => {
-            log("Status: " + res.status);
-            return res.json();
-          })
-          .then(data => {
-            log("Response Data: " + JSON.stringify(data, null, 2));
-            if (data.url) {
-              log("Redirecting to: " + data.url);
-              window.location.href = data.url;
-            } else {
-              document.body.innerHTML += "<br/><b>Failed to get redirect URL from server.</b>";
-            }
-          })
-          .catch(err => {
-            log("Error: " + err.message);
-          });
-        </script>
-        <style>
-          @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-          }
-        </style>
-      </body>
-    </html>
-  `;
+    if (rawSetCookie && rawSetCookie.length > 0) {
+      rawSetCookie.forEach((cookieStr: string) => {
+        res.append("Set-Cookie", cookieStr);
+      });
+    }
 
-  return res.send(html);
+    const data = await authResponse.json();
+
+    if (data?.url) {
+      return res.redirect(data.url);
+    }
+
+    console.error("signInSocial returned no URL:", data);
+    return res.redirect(`${envVars.FRONTEND_URL}/login?error=social_login_failed`);
+  } catch (error) {
+    console.error("Error in googleLogin:", error);
+    return res.redirect(`${envVars.FRONTEND_URL}/login?error=social_login_failed`);
+  }
 });
 
 const googleLoginSuccess = catchAsync(async (req: Request, res: Response) => {
-  const sessionToken = req.cookies["__Secure-better-auth.session_token"] || req.cookies["better-auth.session_token"];
+  const sessionTokenCookie =
+    req.cookies["__Secure-better-auth.session_token"] ||
+    req.cookies["better-auth.session_token"];
+
+  const rawCookieHeader = req.headers.cookie || "";
+  let sessionToken = sessionTokenCookie;
+  if (!sessionToken && rawCookieHeader) {
+    const match = rawCookieHeader.match(/(?:__Secure-)?better-auth\.session_token=([^;]+)/);
+    if (match) {
+      sessionToken = decodeURIComponent(match[1]);
+    }
+  }
 
   if (!sessionToken) {
-    return res.redirect(`${envVars.FRONTEND_URL}/?login=error&reason=no_session_token_cookie`);
+    console.error("googleLoginSuccess: sessionToken cookie missing from request");
+    return res.redirect(`${envVars.FRONTEND_URL}/login?error=social_login_failed`);
   }
 
- const session = await auth.api.getSession({
-  headers: {
-    Cookie: req.headers.cookie || "",
-  },
-});
-
-console.log("GOOGLE SESSION:", session?.user); // 🔥 DEBUG (temporary)
-
-  if (!session) {
-    return res.redirect(`${envVars.FRONTEND_URL}/?login=error&reason=invalid_session_from_better_auth`);
+  let session: any = null;
+  try {
+    session = await auth.api.getSession({
+      headers: fromNodeHeaders(req.headers),
+    });
+  } catch (err) {
+    console.warn("auth.api.getSession threw error:", err);
   }
 
-  if (!session.user) {
-    return res.redirect(`${envVars.FRONTEND_URL}/?login=error&reason=no_user_in_session`);
+  if (!session?.user || !session?.session) {
+    const rawToken = sessionToken.split(".")[0];
+    console.log("googleLoginSuccess: getSession returned null, trying fallback with rawToken:", rawToken);
+
+    try {
+      const ctx = await (auth as any).$context;
+      const foundSession = await ctx.internalAdapter.findSession(rawToken);
+      if (foundSession?.user && foundSession?.session) {
+        session = foundSession;
+      }
+    } catch (err) {
+      console.warn("ctx.internalAdapter.findSession failed:", err);
+    }
+
+    if (!session?.user && redisClient) {
+      try {
+        const raw = await redisClient.get("better-auth:" + rawToken);
+        if (raw) {
+          const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+          if (parsed?.user && parsed?.session) {
+            session = parsed;
+          }
+        }
+      } catch (err) {
+        console.warn("Redis direct get failed:", err);
+      }
+    }
+
+    if (!session?.user) {
+      try {
+        const dbSession = await prisma.session.findUnique({
+          where: { token: rawToken },
+          include: { user: true },
+        });
+        if (dbSession && dbSession.user) {
+          session = {
+            session: dbSession,
+            user: dbSession.user,
+          };
+        }
+      } catch (err) {
+        console.warn("prisma.session.findUnique failed:", err);
+      }
+    }
+  }
+
+  if (!session?.user) {
+    console.error("googleLoginSuccess: Failed to retrieve user session after all attempts");
+    return res.redirect(`${envVars.FRONTEND_URL}/login?error=social_login_failed`);
   }
 
   try {
@@ -304,23 +336,37 @@ console.log("GOOGLE SESSION:", session?.user); // 🔥 DEBUG (temporary)
 
     tokenUtils.setAccessTokenCookie(res, accessToken);
     tokenUtils.setRefreshTokenCookie(res, refreshToken);
+    if (sessionToken) {
+      tokenUtils.setBetterAuthSessionCookie(res, sessionToken);
+    }
+
+    const redirectPath = (req.query.redirect as string) || "/";
 
     const redirectUrl = `${envVars.FRONTEND_URL}/?login=success` +
       `&accessToken=${encodeURIComponent(accessToken)}` +
       `&refreshToken=${encodeURIComponent(refreshToken)}` +
-      `&sessionToken=${encodeURIComponent(sessionToken)}`;
+      `&sessionToken=${encodeURIComponent(sessionToken)}` +
+      `&redirect=${encodeURIComponent(redirectPath)}`;
 
     return res.redirect(redirectUrl);
   } catch (error: any) {
     console.error("googleLoginSuccess AuthService error:", error);
-    return res.redirect(`${envVars.FRONTEND_URL}/?login=error&reason=auth_service_failed&message=${encodeURIComponent(error.message || 'unknown')}`);
+    tokenUtils.clearAccessTokenCookie(res);
+    tokenUtils.clearRefreshTokenCookie(res);
+    tokenUtils.clearBetterAuthSessionCookie(res);
+    res.clearCookie("__Secure-better-auth.session_token", { path: "/" });
+    res.clearCookie("better-auth.session_token", { path: "/" });
+    const errorCode = error?.statusCode === status.FORBIDDEN
+      ? (error?.message?.includes("student") ? "social_account_not_student" : "social_login_failed")
+      : "social_login_failed";
+    return res.redirect(`${envVars.FRONTEND_URL}/login?error=${errorCode}`);
   }
 });
 
 const handleOAuthError = catchAsync((req: Request, res: Response) => {
   const error = req.query.error as string || "oauth_failed";
   res.redirect(`${envVars.FRONTEND_URL}/login?error=${error}`);
-})
+});
 export const AuthController = {
   registerUser,
   loginUser,

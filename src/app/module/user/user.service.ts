@@ -49,6 +49,32 @@ const updateMyProfile = async (
       image: true,
       role: true,
       status: true,
+      isPremium: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+
+  return updatedUser;
+};
+
+const upgradeToPremium = async (userId: string) => {
+  const existingUser = await prisma.user.findUniqueOrThrow({
+    where: { id: userId },
+  });
+
+  const updatedUser = await prisma.user.update({
+    where: { id: existingUser.id },
+    data: { isPremium: true },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      emailVerified: true,
+      image: true,
+      role: true,
+      status: true,
+      isPremium: true,
       createdAt: true,
       updatedAt: true,
     },
@@ -59,4 +85,5 @@ const updateMyProfile = async (
 
 export const UserService = {
   updateMyProfile,
+  upgradeToPremium,
 };

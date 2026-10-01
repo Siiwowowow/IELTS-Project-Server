@@ -25,12 +25,19 @@ app.post("/webhook", express.raw({ type: "application/json" }),async(req:Request
 })
 
 // Enable CORS with credentials
+const clientOrigin = envVars.FRONTEND_URL ? new URL(envVars.FRONTEND_URL).origin : "";
 app.use(cors({
-    origin : [envVars.FRONTEND_URL, envVars.BETTER_AUTH_URL, "http://localhost:3000", "http://localhost:5000"],
-    credentials : true,
-    methods : ["GET", "POST", "PUT", "DELETE", "PATCH"],
-    allowedHeaders : ["Content-Type", "Authorization"]
-}))
+    origin: [
+      clientOrigin,
+      "https://ielts-project-client.vercel.app",
+      "https://ielts-project-server.vercel.app",
+      "http://localhost:3000",
+      "http://localhost:5000",
+    ].filter(Boolean),
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "Cookie", "X-Requested-With"]
+}));
 app.use("/api/auth", toNodeHandler(auth))
 
 // Enable URL-encoded form data parsing

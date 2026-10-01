@@ -24,4 +24,10 @@ router.delete(
   UserController.removeProfilePhoto
 );
 
+router.post(
+  "/upgrade-premium",
+  checkAuth(Role.STUDENT, Role.TEACHER, Role.ADMIN, Role.SUPER_ADMIN),
+  UserController.upgradeToPremium
+);
+
 export const UserRoutes = router;

@@ -13,7 +13,7 @@ import { JwtPayload } from "jsonwebtoken";
 import { envVars } from "../../config/env.js";
 import { hashPassword, verifyPassword } from "better-auth/crypto";
 import { randomBytes } from "node:crypto";
-import { userStatus } from "@prisma/client";
+import { Role, userStatus } from "@prisma/client";
 
 /** Must match `session.expiresIn` in lib/auth.ts (seconds) → ms for Date */
 const SESSION_DURATION_MS = 60 * 60 * 24 * 1000;
@@ -147,6 +147,7 @@ const getMe = async (userId: string) => {
       emailVerified: true, // ✅ ADDED
       needPasswordChange: true, // ✅ ADDED
       isDeleted: true,
+      isPremium: true,
       admin: true,
       teacher: true,
     },
@@ -552,26 +553,56 @@ const resetPassword = async (email : string, otp : string, newPassword : string)
 
   return { success: true, message: "Password reset successful" };}
 const googleLoginSuccess = async (session: Record<string, any>) => {
+  const sessionUserId = session?.user?.id;
+  const sessionEmail = String(session?.user?.email || "").trim().toLowerCase();
+
+  if (!sessionUserId || !sessionEmail) {
+    throw new AppError(status.UNAUTHORIZED, "Social login session is invalid");
+  }
+
+  const existingUser = await prisma.user.findFirst({
+    where: { OR: [{ id: sessionUserId }, { email: sessionEmail }] },
+  });
+
+  if (existingUser && existingUser.role !== Role.STUDENT) {
+    throw new AppError(status.FORBIDDEN, "This account cannot use social sign-in");
+  }
+
   const googleImage =
     session.user.image ||
     session.user.picture ||
     session.user.avatar ||
     null;
 
-  const user = await prisma.user.upsert({
-    where: { id: session.user.id },
-    update: {
-      name: session.user.name,
-      email: session.user.email,
-      image: googleImage, // ✅ FIXED
-    },
-    create: {
-      id: session.user.id,
-      name: session.user.name,
-      email: session.user.email,
-      image: googleImage, // ✅ FIXED
-    },
-  });
+  let user;
+  if (existingUser) {
+    if (existingUser.isDeleted || existingUser.status === userStatus.BLOCKED) {
+      throw new AppError(status.FORBIDDEN, "This social login account is not allowed");
+    }
+
+    user = await prisma.user.update({
+      where: { id: existingUser.id },
+      data: {
+        name: session.user.name || existingUser.name,
+        image: googleImage || existingUser.image,
+        emailVerified: true,
+      },
+    });
+  } else {
+    user = await prisma.user.create({
+      data: {
+        id: sessionUserId,
+        name: session.user.name || "Student",
+        email: sessionEmail,
+        image: googleImage,
+        role: Role.STUDENT,
+        status: userStatus.ACTIVE,
+        emailVerified: true,
+        needPasswordChange: false,
+        isDeleted: false,
+      },
+    });
+  }
 
   const accessToken = tokenUtils.getAccessToken({
     userId: user.id,

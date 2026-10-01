@@ -1,14 +1,14 @@
 //prisma/schema/enum.prisma
-enum Role{
-    SUPER_ADMIN
-    ADMIN
-    TEACHER
-    STUDENT
-
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  TEACHER
+  STUDENT
 }
-enum userStatus{
-    PENDING_VERIFICATION
-    BLOCKED
-    DELETED
-    ACTIVE
+
+enum userStatus {
+  PENDING_VERIFICATION
+  BLOCKED
+  DELETED
+  ACTIVE
 }

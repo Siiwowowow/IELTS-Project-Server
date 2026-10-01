@@ -4,6 +4,7 @@ export interface ICreateMockTestPayload {
   title: string;
   description?: string;
   isPublished?: boolean;
+  isPremium?: boolean;
   readingExamId?: string | null;
   listeningExamId?: string | null;
   writingExamId?: string | null;
@@ -14,6 +15,7 @@ export interface IUpdateMockTestPayload {
   title?: string;
   description?: string;
   isPublished?: boolean;
+  isPremium?: boolean;
   readingExamId?: string | null;
   listeningExamId?: string | null;
   writingExamId?: string | null;
