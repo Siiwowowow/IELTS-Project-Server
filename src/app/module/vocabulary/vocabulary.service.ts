@@ -15,7 +15,12 @@ const updateWord = (id: string, payload: Record<string, unknown>) => prisma.voca
 const deleteWord = async (id: string) => { await prisma.vocabularyWord.delete({ where: { id } }); return null; };
 const toggleBookmark = async (userId: string, wordId: string, word: string, meaning: string) => {
   const existing = await prisma.vocabularyBookmark.findUnique({ where: { userId_wordId: { userId, wordId } } });
-  if (existing) { await prisma.vocabularyBookmark.delete({ where: { id: existing.id } }); return { bookmarked: false, wordId }; }
+  if (existing) {
+    // deleteMany is deliberately idempotent. A repeated/concurrent toggle may
+    // have removed this row after findUnique, and that should not become P2025.
+    await prisma.vocabularyBookmark.deleteMany({ where: { userId, wordId } });
+    return { bookmarked: false, wordId };
+  }
   await prisma.vocabularyBookmark.create({ data: { userId, wordId, word, meaning } });
   return { bookmarked: true, wordId };
 };
